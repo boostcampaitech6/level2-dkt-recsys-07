@@ -8,7 +8,7 @@ def parse_args():
     parser.add_argument("--device", default="cpu", type=str, help="cpu or gpu")
     parser.add_argument(
         "--data_dir",
-        default="/opt/ml/input/data/",
+        default="../../data/",
         type=str,
         help="data directory",
     )

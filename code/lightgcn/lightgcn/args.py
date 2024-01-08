@@ -7,7 +7,7 @@ def parse_args():
     parser.add_argument("--seed", default=42, type=int, help="seed")
     parser.add_argument("--use_cuda_if_available", default=True, type=bool, help="Use GPU")
     
-    parser.add_argument("--data_dir", default="/opt/ml/input/data", type=str, help="")
+    parser.add_argument("--data_dir", default="../../data/", type=str, help="")
     
     parser.add_argument("--output_dir", default="./outputs/", type=str, help="")
     
