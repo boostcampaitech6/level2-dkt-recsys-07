@@ -10,3 +10,6 @@
 *wandb/
 *.log
 *outputs/
+
+#ignore automl outputs,
+*AutogluonModels/
