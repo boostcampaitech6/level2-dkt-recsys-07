@@ -173,6 +173,7 @@ def get_model(args) -> nn.Module:
         n_tests=args.n_tests,
         n_questions=args.n_questions,
         n_tags=args.n_tags,
+        n_big=args.n_big,
         n_heads=args.n_heads,
         drop_out=args.drop_out,
         max_seq_len=args.max_seq_len,
