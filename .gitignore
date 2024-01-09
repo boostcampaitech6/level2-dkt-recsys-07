@@ -1,0 +1,12 @@
+# ignore data folder
+/data/
+
+# ignore .pyc
+*.pyc
+
+# ignore asset, models, wandb, outputs folders and log
+*asset/
+*models/
+*wandb/
+*.log
+*outputs/
