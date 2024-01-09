@@ -4,8 +4,9 @@
 # ignore .pyc
 *.pyc
 
-# ignore asset, models, wandb folders and log
+# ignore asset, models, wandb, outputs folders and log
 *asset/
 *models/
 *wandb/
 *.log
+*outputs/
