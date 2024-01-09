@@ -44,7 +44,7 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df: pd.DataFrame, is_train: bool = True) -> pd.DataFrame:
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
+        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag","BigTag"]
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
@@ -80,6 +80,7 @@ class Preprocess:
 
     def __feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
         # TODO: Fill in if needed
+        df['BigTag'] = df['assessmentItemID'].str[2]
         return df
 
     def load_data_from_file(self, file_name: str, is_train: bool = True) -> np.ndarray:
@@ -99,9 +100,12 @@ class Preprocess:
         self.args.n_tags = len(
             np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
         )
+        self.args.n_big = len(
+            np.load(os.path.join(self.args.asset_dir, "BigTag_classes.npy"))
+        )
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
-        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
+        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",'BigTag']
         group = (
             df[columns]
             .groupby("userID")
@@ -110,6 +114,7 @@ class Preprocess:
                     r["testId"].values,
                     r["assessmentItemID"].values,
                     r["KnowledgeTag"].values,
+                    r["BigTag"].values,
                     r["answerCode"].values,
                 )
             )
@@ -132,11 +137,12 @@ class DKTDataset(torch.utils.data.Dataset):
         row = self.data[index]
         
         # Load from data
-        test, question, tag, correct = row[0], row[1], row[2], row[3]
+        test, question, tag, big, correct = row[0], row[1], row[2], row[3], row[4]
         data = {
             "test": torch.tensor(test + 1, dtype=torch.int),
             "question": torch.tensor(question + 1, dtype=torch.int),
             "tag": torch.tensor(tag + 1, dtype=torch.int),
+            "big": torch.tensor(big+1, dtype=torch.int),
             "correct": torch.tensor(correct, dtype=torch.int),
         }
 
