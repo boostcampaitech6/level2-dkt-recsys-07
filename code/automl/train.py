@@ -18,4 +18,4 @@ test_data = TabularDataset(test_df)
 label = "answerCode"
 predictor = TabularPredictor(
     label=label, eval_metric="roc_auc", problem_type="binary"
-).fit(train_data, gpu_nums=1, time_limit=600, presets=["medium_quality"])
+).fit(train_data, num_gpus=1, presets=["best_quality"])
