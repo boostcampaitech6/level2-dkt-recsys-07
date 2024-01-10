@@ -81,6 +81,14 @@ class Preprocess:
     def __feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
         # TODO: Fill in if needed
         df['BigTag'] = df['assessmentItemID'].str[2]
+
+        # 각 문제별 정답률 계산
+        answer_rates = df.groupby('assessmentItemID')['answerCode'].agg(['sum', 'count'])
+        answer_rates['rate'] = answer_rates['sum'] / answer_rates['count']
+
+        # 원본 데이터프레임에 정답률 추가
+        df = df.merge(answer_rates['rate'], on='assessmentItemID', how='left')
+
         return df
 
     def load_data_from_file(self, file_name: str, is_train: bool = True) -> np.ndarray:
@@ -105,7 +113,7 @@ class Preprocess:
         )
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
-        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",'BigTag']
+        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag",'BigTag','rate']
         group = (
             df[columns]
             .groupby("userID")
@@ -114,8 +122,9 @@ class Preprocess:
                     r["testId"].values,
                     r["assessmentItemID"].values,
                     r["KnowledgeTag"].values,
-                    r["BigTag"].values,
                     r["answerCode"].values,
+                    r["BigTag"].values,
+                    r["rate"].values,
                 )
             )
         )
@@ -137,13 +146,14 @@ class DKTDataset(torch.utils.data.Dataset):
         row = self.data[index]
         
         # Load from data
-        test, question, tag, big, correct = row[0], row[1], row[2], row[3], row[4]
+        test, question, tag, correct, big, rate = row[0], row[1], row[2], row[3], row[4], row[5]
         data = {
             "test": torch.tensor(test + 1, dtype=torch.int),
             "question": torch.tensor(question + 1, dtype=torch.int),
             "tag": torch.tensor(tag + 1, dtype=torch.int),
-            "big": torch.tensor(big+1, dtype=torch.int),
             "correct": torch.tensor(correct, dtype=torch.int),
+            "big": torch.tensor(big+1, dtype=torch.int),
+            "rate": torch.tensor(rate, dtype=torch.float),
         }
 
         # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
