@@ -29,14 +29,14 @@ class ModelBase(nn.Module):
         self.embedding_question = nn.Embedding(n_questions + 1, intd)
         self.embedding_tag = nn.Embedding(n_tags + 1, intd)
         self.embedding_big = nn.Embedding(n_big + 1, intd)
-
+        
         # Concatentaed Embedding Projection
-        self.comb_proj = nn.Linear(intd * 5, hd)
+        self.comb_proj = nn.Linear(intd * 5+1, hd)
 
         # Fully connected layer
         self.fc = nn.Linear(hd, 1)
     
-    def forward(self, test, question, tag, correct, big, mask, interaction):
+    def forward(self, test, question, tag, correct, big, rate, mask, interaction):
         batch_size = interaction.size(0)
         # Embedding
         embed_interaction = self.embedding_interaction(interaction.int())
@@ -50,7 +50,8 @@ class ModelBase(nn.Module):
                 embed_test,
                 embed_question,
                 embed_tag,
-                embed_big
+                embed_big, 
+                rate.unsqueeze(2)
             ],
             dim=2,
         )
@@ -79,12 +80,13 @@ class LSTM(ModelBase):
             self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
         )
 
-    def forward(self, test, question, tag, big, correct, mask, interaction):
+    def forward(self, test, question, tag, correct, big, rate, mask, interaction):
         X, batch_size = super().forward(test=test,
                                         question=question,
                                         tag=tag,
-                                        big=big,
                                         correct=correct,
+                                        big=big,
+                                        rate=rate,
                                         mask=mask,
                                         interaction=interaction)
         out, _ = self.lstm(X)
@@ -128,12 +130,13 @@ class LSTMATTN(ModelBase):
         )
         self.attn = BertEncoder(self.config)
 
-    def forward(self, test, question, tag, correct, mask, big, interaction):
+    def forward(self, test, question, tag, correct, big, rate, mask, interaction):
         X, batch_size = super().forward(test=test,
                                         question=question,
                                         tag=tag,
                                         correct=correct,
                                         big=big,
+                                        rate=rate,
                                         mask=mask,
                                         interaction=interaction)
 
@@ -184,12 +187,13 @@ class BERT(ModelBase):
         )
         self.encoder = BertModel(self.config)
 
-    def forward(self, test, question, tag, correct, big, mask, interaction):
+    def forward(self, test, question, tag, correct, big, rate, mask, interaction):
         X, batch_size = super().forward(test=test,
                                         question=question,
                                         tag=tag,
                                         correct=correct,
                                         big=big,
+                                        rate=rate,
                                         mask=mask,
                                         interaction=interaction)
 
