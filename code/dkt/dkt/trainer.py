@@ -4,7 +4,6 @@ import os
 import numpy as np
 import torch
 from torch import nn
-from torch.nn.functional import sigmoid
 import wandb
 
 from .criterion import get_criterion
@@ -100,7 +99,7 @@ def train(train_loader: torch.utils.data.DataLoader,
             logger.info("Training steps: %s Loss: %.4f", step, loss.item())
 
         # predictions
-        preds = sigmoid(preds[:, -1])
+        preds = torch.sigmoid(preds[:, -1])
         targets = targets[:, -1]
 
         total_preds.append(preds.detach())
@@ -128,7 +127,7 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
         targets = batch["correct"]
 
         # predictions
-        preds = sigmoid(preds[:, -1])
+        preds = torch.sigmoid(preds[:, -1])
         targets = targets[:, -1]
 
         total_preds.append(preds.detach())
@@ -153,7 +152,7 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
         preds = model(**batch)
 
         # predictions
-        preds = sigmoid(preds[:, -1])
+        preds = torch.sigmoid(preds[:, -1])
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
