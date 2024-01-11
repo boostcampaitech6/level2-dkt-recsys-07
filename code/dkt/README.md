@@ -28,3 +28,12 @@ conda init
 * `scheduler.py`: scheduler 소스코드를 포함합니다.
 * `trainer.py`: 훈련에 사용되는 함수들을 포함합니다.
 * `utils.py`: 학습에 필요한 부수적인 함수들을 포함합니다.
+
+`code/dkt/config`
+* `default.yaml`: configuration 설정 파일입니다.
+
+## CLI argument override
+
+(dkt) python train.py existing_field=value : 값 변경
+(dkt) python train.py +new_field=value : 새 필드 생성 후 값 입력
+(dkt) python train.py ++new_or_existing_field=value : 필드가 존재 했다면 값 변경, 필드가 없었다면 생성 후 값 입력
