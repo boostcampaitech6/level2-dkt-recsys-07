@@ -1,8 +1,9 @@
 import os
 
 import torch
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
-from lightgcn.args import parse_args
 from lightgcn.datasets import prepare_dataset
 from lightgcn import trainer
 from lightgcn.utils import get_logger, logging_conf, set_seeds
@@ -11,12 +12,17 @@ from lightgcn.utils import get_logger, logging_conf, set_seeds
 logger = get_logger(logging_conf)
 
 
-def main(args):
+@hydra.main(version_base="1.3", config_path="config", config_name="default.yaml")
+def main(args: DictConfig):
+    OmegaConf.set_struct(args, False)
+    os.makedirs(name=args.model_dir, exist_ok=True)
     set_seeds(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     logger.info("Preparing data ...")
-    train_data, test_data, n_node = prepare_dataset(device=device, data_dir=args.data_dir)
+    train_data, test_data, n_node = prepare_dataset(
+        device=device, data_dir=args.data_dir
+    )
 
     logger.info("Loading Model ...")
     weight: str = os.path.join(args.model_dir, args.model_name)
@@ -32,8 +38,6 @@ def main(args):
     logger.info("Make Predictions & Save Submission ...")
     trainer.inference(model=model, data=test_data, output_dir=args.output_dir)
 
-if __name__ == "__main__":
-    args = parse_args()
-    os.makedirs(name=args.model_dir, exist_ok=True)
-    main(args=args)
 
+if __name__ == "__main__":
+    main()

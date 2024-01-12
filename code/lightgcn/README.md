@@ -23,3 +23,12 @@ conda init
 * `datasets.py`: 학습 데이터를 불러 GCN 입력에 맞게 변환해줍니다.
 * `trainer.py`: 훈련에 사용되는 함수들을 포함합니다.
 * `utils.py`: 학습에 필요한 부수적인 함수들을 포함합니다.
+
+`code/lightgcn/config`
+* `default.yaml`: configuration 설정 파일입니다.
+
+## CLI argument override
+
+(gcn) python train.py existing_field=value : 값 변경
+(gcn) python train.py +new_field=value : 새 필드 생성 후 값 입력
+(gcn) python train.py ++new_or_existing_field=value : 필드가 존재 했다면 값 변경, 필드가 없었다면 생성 후 값 입력
