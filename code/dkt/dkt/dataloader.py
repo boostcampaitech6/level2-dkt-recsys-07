@@ -36,15 +36,9 @@ class Preprocess:
             random.seed(seed)  # fix to default seed 0
             random.shuffle(data)
 
-        if self.args.custom_valid == True:
-            data_1 = data
-
-            make_valid()
-            data_2 = self.load_data_from_file('valid_data.csv', is_train=False)
-        else:
-            size = int(len(data) * ratio)
-            data_1 = data[:size]
-            data_2 = data[size:]
+        size = int(len(data) * ratio)
+        data_1 = data[:size]
+        data_2 = data[size:]
         return data_1, data_2
 
     def __save_labels(self, encoder: LabelEncoder, name: str) -> None:
