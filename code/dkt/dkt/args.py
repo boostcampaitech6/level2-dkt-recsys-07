@@ -62,9 +62,6 @@ def parse_args():
         "--scheduler", default="plateau", type=str, help="scheduler type"
     )
 
-    # Custom
-    parser.add_argument("--custom_valid", default=False, type=bool, help="test data를 valid로 활용할지 결정")
-
     args = parser.parse_args()
 
     return args
