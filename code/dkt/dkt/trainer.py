@@ -3,8 +3,7 @@ import os
 
 import numpy as np
 import torch
-from torch import nn
-from torch.nn.functional import sigmoid
+from torch import nn, sigmoid
 import wandb
 
 from .criterion import get_criterion
