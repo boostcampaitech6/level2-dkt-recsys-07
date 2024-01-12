@@ -57,10 +57,14 @@ def run(args,
             best_auc = auc
             # nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
+            if args.cv > 0:
+                model_filename = f"{args.model}_CV_{args.cv}_{args.model_name}"
+            else:
+                model_filename = f"{args.model}_{args.model_name}"
             save_checkpoint(state={"epoch": epoch + 1,
                                    "state_dict": model_to_save.state_dict()},
                             model_dir=args.model_dir,
-                            model_filename="best_model.pt")
+                            model_filename=model_filename)
             early_stopping_counter = 0
         else:
             early_stopping_counter += 1
@@ -156,7 +160,11 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
-    write_path = os.path.join(args.output_dir, "submission.csv")
+    if args.cv > 0:
+        output_file_name = f"{args.model}_CV_{args.cv}_submission.csv"
+    else:
+        output_file_name = f"{args.model}_submission.csv"
+    write_path = os.path.join(args.output_dir, output_file_name)
     os.makedirs(name=args.output_dir, exist_ok=True)
     with open(write_path, "w", encoding="utf8") as w:
         w.write("id,prediction\n")
@@ -229,7 +237,11 @@ def save_checkpoint(state: dict, model_dir: str, model_filename: str) -> None:
 
 
 def load_model(args):
-    model_path = os.path.join(args.model_dir, args.model_name)
+    if args.cv > 0:
+        model_name = f"{args.model}_CV_{args.cv}_{args.model_name}"
+    else:
+        model_name = f"{args.model}_{args.model_name}"
+    model_path = os.path.join(args.model_dir, model_name)
     logger.info("Loading Model from: %s", model_path)
     load_state = torch.load(model_path)
     model = get_model(args)

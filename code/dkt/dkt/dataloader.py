@@ -9,6 +9,8 @@ import pandas as pd
 import torch
 from sklearn.preprocessing import LabelEncoder
 
+from .valid import make_valid
+
 
 class Preprocess:
     def __init__(self, args):
@@ -34,9 +36,21 @@ class Preprocess:
             random.seed(seed)  # fix to default seed 0
             random.shuffle(data)
 
-        size = int(len(data) * ratio)
-        data_1 = data[:size]
-        data_2 = data[size:]
+        if self.args.cv > 0:
+            size = len(data)//5
+            fold_index = self.args.cv
+            if fold_index < 5:
+                data_1 = np.concatenate((data[:size*(fold_index - 1)], data[size*fold_index:]))
+                data_2 = data[size*(fold_index - 1):size*fold_index]
+            elif fold_index == 5:
+                data_1 = data[:size*(fold_index-1)]
+                data_2 = data[size*(fold_index-1):]
+            else:
+                raise ValueError("args.cv not in [0,1,2,3,4,5]")
+        else:
+            size = int(len(data) * ratio)
+            data_1 = data[:size]
+            data_2 = data[size:]
         return data_1, data_2
 
     def __save_labels(self, encoder: LabelEncoder, name: str) -> None:
