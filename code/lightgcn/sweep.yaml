@@ -1,0 +1,14 @@
+program: train.py
+method: bayes
+metric:
+  goal: maximize
+  name: valid_auc_epoch
+parameters:
+  lr:
+    min: 1.0e-6
+    max: 1.0e-3
+command:
+  - ${env}
+  - python
+  - ${program}
+  - ${args_no_hyphens}
