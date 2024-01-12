@@ -26,7 +26,7 @@ def main(args: DictConfig):
     preprocess = Preprocess(args)
     preprocess.load_train_data(file_name=args.file_name)
     train_data: np.ndarray = preprocess.get_train_data()
-    train_data, valid_data = preprocess.split_data(data=train_data)
+    train_data, valid_data = preprocess.split_data(data=train_data, seed=args.seed)
     wandb.init(
         project="dkt",
         config=OmegaConf.to_container(args, resolve=True, throw_on_missing=True),
