@@ -62,6 +62,9 @@ def parse_args():
         "--scheduler", default="plateau", type=str, help="scheduler type"
     )
 
+    # Custom
+    parser.add_argument("--cv", default=0, type=int, help="if cv > 0: fold index = cv. max=5")
+
     args = parser.parse_args()
 
     return args
