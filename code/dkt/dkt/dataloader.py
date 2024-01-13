@@ -109,7 +109,7 @@ class Preprocess:
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
         self.args.columns = (
-            ["userID"] + self.args.cate_cols + self.args.cont_cols + ["answerCode"]
+            ["userID", "answerCode"] + self.args.cate_cols + self.args.cont_cols
         )
         group = (
             df[self.args.columns]
@@ -137,6 +137,8 @@ class DKTDataset(torch.utils.data.Dataset):
         # Load from data
         data = {
             col: torch.tensor(row[i] + 1, dtype=torch.int)
+            if i <= len(self.args.cate_cols)
+            else torch.tensor(row[i], dtype=torch.float)
             for i, col in enumerate(self.args.columns[1:])
         }
 

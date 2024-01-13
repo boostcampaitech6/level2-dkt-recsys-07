@@ -23,14 +23,16 @@ class ModelBase(nn.Module):
 
         # Concatentaed Embedding Projection
         self.comb_proj = nn.Linear(intd * (len(self.embedding_dict)), hd)
-        self.layer_normalization = nn.LayerNorm(hd)
+        self.cont_proj = nn.Linear(len(self.args.cont_cols), hd)
+        self.category_layer_normalization = nn.LayerNorm(hd)
+        self.continuous_layer_normalization = nn.LayerNorm(hd)
 
         # Fully connected layer
-        self.fc = nn.Linear(hd, 1)
+        self.fc = nn.Linear(2 * hd, 1)
 
     def forward(self, **input):
         batch_size = input["Interaction"].size(0)
-        # Embedding
+        # Categorical cols
         embeddings = []
         for col in self.args.cate_cols:
             embeddings.append(self.embedding_dict[col](input[col].int()))
@@ -39,7 +41,18 @@ class ModelBase(nn.Module):
         )
         embed = torch.cat(embeddings, dim=2)
         X = self.comb_proj(embed)
-        X = self.layer_normalization(X)
+        X = self.category_layer_normalization(X)
+        # Continuos cols
+        conts = [input[col].float() for col in self.args.cont_cols]
+        conts = (
+            torch.cat(conts, dim=2)
+            if len(conts) > 1
+            else conts[-1].contiguous().view(batch_size, -1, 1)
+        )
+        Y = self.cont_proj(conts)
+        Y = self.continuous_layer_normalization(Y)
+
+        X = torch.cat((X, Y), dim=2)
         return X, batch_size
 
 
@@ -47,13 +60,13 @@ class LSTM(ModelBase):
     def __init__(self, args):
         super().__init__(args)
         self.lstm = nn.LSTM(
-            args.hidden_dim, args.hidden_dim, args.n_layers, batch_first=True
+            2 * args.hidden_dim, 2 * args.hidden_dim, args.n_layers, batch_first=True
         )
 
     def forward(self, **input):
         X, batch_size = super().forward(**input)
         out, _ = self.lstm(X)
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
         return out
 
@@ -64,14 +77,14 @@ class LSTMATTN(ModelBase):
         self.n_heads = args.n_heads
         self.drop_out = args.drop_out
         self.lstm = nn.LSTM(
-            args.hidden_dim, args.hidden_dim, args.n_layers, batch_first=True
+            2 * args.hidden_dim, 2 * args.hidden_dim, args.n_layers, batch_first=True
         )
         self.config = BertConfig(
             3,  # not used
-            hidden_size=args.hidden_dim,
+            hidden_size=2 * args.hidden_dim,
             num_hidden_layers=1,
             num_attention_heads=self.n_heads,
-            intermediate_size=args.hidden_dim,
+            intermediate_size=2 * args.hidden_dim,
             hidden_dropout_prob=args.drop_out,
             attention_probs_dropout_prob=args.drop_out,
         )
@@ -81,7 +94,7 @@ class LSTMATTN(ModelBase):
         X, batch_size = super().forward(**input)
 
         out, _ = self.lstm(X)
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
 
         extended_attention_mask = input["mask"].unsqueeze(1).unsqueeze(2)
         extended_attention_mask = extended_attention_mask.to(dtype=torch.float32)
@@ -103,7 +116,7 @@ class BERT(ModelBase):
         # Bert config
         self.config = BertConfig(
             3,  # not used
-            hidden_size=args.hidden_dim,
+            hidden_size=2 * args.hidden_dim,
             num_hidden_layers=args.n_layers,
             num_attention_heads=args.n_heads,
             max_position_embeddings=args.max_seq_len,
@@ -115,6 +128,6 @@ class BERT(ModelBase):
 
         encoded_layers = self.encoder(inputs_embeds=X, attention_mask=input["mask"])
         out = encoded_layers[0]
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
         return out
