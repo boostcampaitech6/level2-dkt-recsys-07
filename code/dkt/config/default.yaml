@@ -14,6 +14,7 @@ test_file_name: "test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
 # Training Parameters
+cv: 0
 num_workers: 1  # Number of workers
 n_epochs: 20  # Number of training epochs
 batch_size: 64  # Batch size
@@ -23,6 +24,8 @@ patience: 5  # Patience for early stopping
 log_steps: 50  # Logging frequency in steps
 
 # Model Configuration
+cate_cols: ["testId", "assessmentItemID", "KnowledgeTag"]
+cont_cols: []
 max_seq_len: 20  # Maximum sequence length
 hidden_dim: 64  # Hidden dimension size
 n_layers: 2  # Number of layers in the model

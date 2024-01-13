@@ -34,6 +34,8 @@ def main(args: DictConfig):
 
     logger.info("Building Model ...")
     model: torch.nn.Module = trainer.get_model(args=args).to(args.device)
+    for k, v in model.embedding_dict.items():
+        v.to(args.device)
 
     logger.info("Start Training ...")
     trainer.run(args=args, train_data=train_data, valid_data=valid_data, model=model)
