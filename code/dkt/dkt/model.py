@@ -23,6 +23,7 @@ class ModelBase(nn.Module):
 
         # Concatentaed Embedding Projection
         self.comb_proj = nn.Linear(intd * (len(self.embedding_dict)), hd)
+        self.layer_normalization = nn.LayerNorm(hd)
 
         # Fully connected layer
         self.fc = nn.Linear(hd, 1)
@@ -38,6 +39,7 @@ class ModelBase(nn.Module):
         )
         embed = torch.cat(embeddings, dim=2)
         X = self.comb_proj(embed)
+        X = self.layer_normalization(X)
         return X, batch_size
 
 
