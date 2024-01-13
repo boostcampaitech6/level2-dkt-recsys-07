@@ -13,9 +13,12 @@ class ModelBase(nn.Module):
         # Embeddings
         # hd: Hidden dimension, intd: Intermediate hidden dimension
         hd, intd = self.hidden_dim, self.hidden_dim // 3
-        self.embedding_dict = {
-            col: nn.Embedding(args.n_cate[col] + 1, intd) for col in self.args.cate_cols
-        }
+        self.embedding_dict = nn.ModuleDict(
+            {
+                col: nn.Embedding(args.n_cate[col] + 1, intd)
+                for col in self.args.cate_cols
+            }
+        )
         self.embedding_dict["Interaction"] = nn.Embedding(3, intd)
 
         # Concatentaed Embedding Projection
