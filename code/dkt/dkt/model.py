@@ -94,42 +94,24 @@ class LSTMATTN(ModelBase):
 
 
 class BERT(ModelBase):
-    def __init__(
-        self,
-        hidden_dim: int = 64,
-        n_layers: int = 2,
-        n_tests: int = 1538,
-        n_questions: int = 9455,
-        n_tags: int = 913,
-        n_heads: int = 2,
-        drop_out: float = 0.1,
-        max_seq_len: float = 20,
-        **kwargs
-    ):
-        super().__init__(hidden_dim, n_layers, n_tests, n_questions, n_tags)
-        self.n_heads = n_heads
-        self.drop_out = drop_out
+    def __init__(self, args):
+        super().__init__(args)
+        self.n_heads = args.n_heads
+        self.drop_out = args.drop_out
         # Bert config
         self.config = BertConfig(
             3,  # not used
-            hidden_size=self.hidden_dim,
-            num_hidden_layers=self.n_layers,
-            num_attention_heads=self.n_heads,
-            max_position_embeddings=max_seq_len,
+            hidden_size=args.hidden_dim,
+            num_hidden_layers=args.n_layers,
+            num_attention_heads=args.n_heads,
+            max_position_embeddings=args.max_seq_len,
         )
         self.encoder = BertModel(self.config)
 
-    def forward(self, test, question, tag, correct, mask, interaction):
-        X, batch_size = super().forward(
-            test=test,
-            question=question,
-            tag=tag,
-            correct=correct,
-            mask=mask,
-            interaction=interaction,
-        )
+    def forward(self, **input):
+        X, batch_size = super().forward(**input)
 
-        encoded_layers = self.encoder(inputs_embeds=X, attention_mask=mask)
+        encoded_layers = self.encoder(inputs_embeds=X, attention_mask=input["mask"])
         out = encoded_layers[0]
         out = out.contiguous().view(batch_size, -1, self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
