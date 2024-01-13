@@ -26,6 +26,8 @@ def main(args: DictConfig):
 
     logger.info("Loading Model ...")
     model: torch.nn.Module = trainer.load_model(args=args).to(args.device)
+    for k, v in model.embedding_dict.items():
+        v.to(args.device)
 
     logger.info("Make Predictions & Save Submission ...")
     trainer.inference(args=args, test_data=test_data, model=model)
