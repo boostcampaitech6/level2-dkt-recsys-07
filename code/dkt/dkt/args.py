@@ -62,6 +62,12 @@ def parse_args():
         "--scheduler", default="plateau", type=str, help="scheduler type"
     )
 
+    # 추가되는 파라미터
+    # 입력 예시 python train.py --cate_cols assessmentItemID testId KnowledgeTag --cont_cols answerCode
+    # (중요) 범주형 리스트에서 userID는 반드시 있어야 함.
+    parser.add_argument("--cate_cols", nargs='+', default=["userID", "assessmentItemID", "testId", "KnowledgeTag",'BigTag'], help="List of categorical columns") #
+    parser.add_argument("--cont_cols", nargs='+', default=['rate','user_correct_answer','user_total_answer','user_acc'], help="List of continuous columns") # 
+
     # Custom
     parser.add_argument("--cv", default=0, type=int, help="if cv > 0: fold index = cv. max=5")
 
