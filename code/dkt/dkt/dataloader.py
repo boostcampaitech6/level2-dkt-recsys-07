@@ -138,7 +138,7 @@ class DKTDataset(torch.utils.data.Dataset):
         data = {
             col: torch.tensor(row[i] + 1, dtype=torch.int)
             if i <= len(self.args.cate_cols)
-            else torch.tensor(row[i], dtype=torch.float)
+            else torch.tensor(row[i], dtype=torch.float).view(-1, 1)
             for i, col in enumerate(self.args.columns[1:])
         }
 
@@ -151,7 +151,7 @@ class DKTDataset(torch.utils.data.Dataset):
         else:
             for k, seq in data.items():
                 # Pre-padding non-valid sequences
-                tmp = torch.zeros(self.max_seq_len)
+                tmp = torch.zeros([self.max_seq_len, 1][: len(data[k].size())])
                 tmp[self.max_seq_len - seq_len :] = data[k]
                 data[k] = tmp
             mask = torch.zeros(self.max_seq_len, dtype=torch.int16)

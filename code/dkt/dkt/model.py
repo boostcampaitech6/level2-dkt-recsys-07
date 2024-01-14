@@ -43,12 +43,13 @@ class ModelBase(nn.Module):
         X = self.comb_proj(embed)
         X = self.category_layer_normalization(X)
         # Continuos cols
-        conts = [input[col].float() for col in self.args.cont_cols]
-        conts = (
-            torch.cat(conts, dim=2)
-            if len(conts) > 1
-            else conts[-1].contiguous().view(batch_size, -1, 1)
-        )
+        conts = []
+        for col in self.args.cont_cols:
+            conts.append(input[col].float())
+        if len(self.args.cont_cols) > 1:
+            conts = torch.cat(conts, dim=2)
+        else:
+            conts = conts[-1]
         Y = self.cont_proj(conts)
         Y = self.continuous_layer_normalization(Y)
 
