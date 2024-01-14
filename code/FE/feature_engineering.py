@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import datetime
+from sklearn.preprocessing import MinMaxScaler
 
 dtype = {
     'userID': 'int16',
@@ -15,6 +16,7 @@ df = pd.read_csv(DATA, dtype=dtype, parse_dates=['Timestamp'])
 df = df.sort_values(by=['userID', 'Timestamp']).reset_index(drop=True)
 
 print('FE 시작:',datetime.now())
+
 # 문제별 대분류 태그 추가
 print('문제별 대분류 태그 추가')
 df['BigTag'] = df['assessmentItemID'].str[2]
@@ -32,17 +34,24 @@ df['user_total_answer'] = df.groupby('userID')['answerCode'].cumcount()
 df['user_acc'] = df['user_correct_answer']/df['user_total_answer']
 df = df.fillna(0)
 
+# 문항 순서와 문항 순서별 정답률 추가
+def percentile(s):
+    return np.sum(s) / len(s)
+
+print('문항 순서와 문항 순서별 정답률 추가')
+df['prob_order'] = df['assessmentItemID'].apply(lambda x: x[7:]).astype(int)
+pronum_group=df.groupby('prob_order')['answerCode'].agg([percentile])
+pronum_group.columns = ['prob_order_correct_rate']
+df = pd.merge(df, pronum_group, on='prob_order',how="left")
 
 # 문항 순서에 따른 난이도 추가
 print('문항 순서에 따른 난이도 추가')
-prob_difficulty={'001':1,'002':2,'003':3,'004':4,'005':5,'006':6,'007':8,'008':11,'009':9,'010':7,'011':10,'012':12,'013':13}
-df['prob_difficulty']=df['assessmentItemID'].apply(lambda x: prob_difficulty.get(x[-3:]))
-
+prob_difficulty={1:1,2:2,3:3,4:4,5:5,6:6,7:8,8:11,9:9,10:7,11:10,12:12,13:13}
+df['prob_difficulty']= df['prob_order'].apply(lambda x: prob_difficulty.get(x))
 
 # 문제 풀이 세션 ver1/ver2(15min 제한) 동시에 계산
 print('문제 풀이 세션 ver1/ver2(15min 제한) 동시에 계산')
 temp_df = df.copy()
-temp_df['order_of_prob']=temp_df['assessmentItemID'].apply(lambda x: x[7:]).astype(int)
 temp_df['time_diff']= temp_df['Timestamp'].diff(-1).abs()
 before_testId = '0'
 before_time = ''
@@ -52,7 +61,7 @@ prob_list=[]
 temp_df['solving_session_ver1']=0
 temp_df['solving_session_ver2']=0
 for i,row in temp_df.iterrows():
-    if  before_testId != row['testId'] or row['order_of_prob'] in prob_list:
+    if  before_testId != row['testId'] or row['prob_order'] in prob_list:
         before_testId=row['testId']
         prob_list=[]
         sess_ver1+=1
@@ -64,13 +73,16 @@ for i,row in temp_df.iterrows():
     temp_df.at[i, 'solving_session_ver1'] = sess_ver1
     temp_df.at[i, 'solving_session_ver2'] = sess_ver2
     before_time = row['time_diff']
-    prob_list.append(row['order_of_prob'])
+    prob_list.append(row['prob_order'])
 
 # 소요시간 추가 ver1 은 범주형으로 ver2는 연속형으로 사용
 print('소요시간 추가: ver1 은 범주형으로 ver2는 연속형으로 사용')
 temp_df['time_diff_ver1']= temp_df.groupby('solving_session_ver1')['Timestamp'].diff(-1).abs()
 df['time_diff_ver2']= temp_df.groupby('solving_session_ver2')['Timestamp'].diff(-1).abs()
 df['time_diff_ver2'].fillna(pd.Timedelta(minutes=15),inplace=True)
+df['time_diff_ver2']=pd.to_timedelta(df['time_diff_ver2']).dt.total_seconds()
+scaler = MinMaxScaler()
+df['time_diff_ver2']=scaler.fit_transform(df['time_diff_ver2'].values.reshape(-1, 1))
 
 print('소요시간 범주화')
 df['5_sec']=0
