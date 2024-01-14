@@ -24,11 +24,9 @@ class Preprocess:
     def get_test_data(self):
         return self.test_data
 
-    def split_data(self,
-                   data: np.ndarray,
-                   ratio: float = 0.7,
-                   shuffle: bool = True,
-                   seed: int = 0) -> Tuple[np.ndarray]:
+    def split_data(
+        self, data: np.ndarray, ratio: float = 0.7, shuffle: bool = True, seed: int = 0
+    ) -> Tuple[np.ndarray]:
         """
         split data into two parts with a given ratio.
         """
@@ -37,14 +35,16 @@ class Preprocess:
             random.shuffle(data)
 
         if self.args.cv > 0:
-            size = len(data)//5
+            size = len(data) // 5
             fold_index = self.args.cv
             if fold_index < 5:
-                data_1 = np.concatenate((data[:size*(fold_index - 1)], data[size*fold_index:]))
-                data_2 = data[size*(fold_index - 1):size*fold_index]
+                data_1 = np.concatenate(
+                    (data[: size * (fold_index - 1)], data[size * fold_index :])
+                )
+                data_2 = data[size * (fold_index - 1) : size * fold_index]
             elif fold_index == 5:
-                data_1 = data[:size*(fold_index-1)]
-                data_2 = data[size*(fold_index-1):]
+                data_1 = data[: size * (fold_index - 1)]
+                data_2 = data[size * (fold_index - 1) :]
             else:
                 raise ValueError("args.cv not in [0,1,2,3,4,5]")
         else:
@@ -144,7 +144,7 @@ class DKTDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index: int) -> dict:
         row = self.data[index]
-        
+
         # Load from data
         test, question, tag, correct = row[0], row[1], row[2], row[3]
         data = {
@@ -158,18 +158,18 @@ class DKTDataset(torch.utils.data.Dataset):
         seq_len = len(row[0])
         if seq_len > self.max_seq_len:
             for k, seq in data.items():
-                data[k] = seq[-self.max_seq_len:]
+                data[k] = seq[-self.max_seq_len :]
             mask = torch.ones(self.max_seq_len, dtype=torch.int16)
         else:
             for k, seq in data.items():
                 # Pre-padding non-valid sequences
                 tmp = torch.zeros(self.max_seq_len)
-                tmp[self.max_seq_len-seq_len:] = data[k]
+                tmp[self.max_seq_len - seq_len :] = data[k]
                 data[k] = tmp
             mask = torch.zeros(self.max_seq_len, dtype=torch.int16)
             mask[-seq_len:] = 1
         data["mask"] = mask
-        
+
         # Generate interaction
         interaction = data["correct"] + 1  # 패딩을 위해 correct값에 1을 더해준다.
         interaction = interaction.roll(shifts=1)
@@ -184,7 +184,9 @@ class DKTDataset(torch.utils.data.Dataset):
         return len(self.data)
 
 
-def get_loaders(args, train: np.ndarray, valid: np.ndarray) -> Tuple[torch.utils.data.DataLoader]:
+def get_loaders(
+    args, train: np.ndarray, valid: np.ndarray
+) -> Tuple[torch.utils.data.DataLoader]:
     pin_memory = False
     train_loader, valid_loader = None, None
 
@@ -209,3 +211,17 @@ def get_loaders(args, train: np.ndarray, valid: np.ndarray) -> Tuple[torch.utils
 
     return train_loader, valid_loader
 
+
+def sliding_window(args, data: np.ndarray) -> np.ndarray:
+    if args.stride > 0:
+        stack = []
+        for user in data:
+            stack.append(user)
+            last = args.stride
+            while last < len(user):
+                stack.append(tuple([r[:-last] for r in user]))
+                last += args.stride
+        data = np.empty(len(stack), dtype=object)
+        for i, row in enumerate(stack):
+            data[-(i + 1)] = row
+    return data

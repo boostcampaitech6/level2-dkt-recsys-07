@@ -7,7 +7,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 from dkt import trainer
-from dkt.dataloader import Preprocess
+from dkt.dataloader import Preprocess, sliding_window
 from dkt.utils import get_logger, set_seeds, logging_conf
 
 
@@ -27,6 +27,7 @@ def main(args: DictConfig):
     preprocess.load_train_data(file_name=args.file_name)
     train_data: np.ndarray = preprocess.get_train_data()
     train_data, valid_data = preprocess.split_data(data=train_data, seed=args.seed)
+    train_data = sliding_window(args, train_data)
     wandb.init(
         project="dkt",
         config=OmegaConf.to_container(args, resolve=True, throw_on_missing=True),
