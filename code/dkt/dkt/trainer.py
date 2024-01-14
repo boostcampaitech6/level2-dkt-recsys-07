@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 import torch
-from torch import nn, sigmoid
+from torch import nn
 import wandb
 
 from .criterion import get_criterion
@@ -92,7 +92,7 @@ def train(train_loader: torch.utils.data.DataLoader,
     losses = []
     for step, batch in enumerate(train_loader):
         batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
+        preds = model(batch)
         targets = batch["correct"]
         
         loss = compute_loss(preds=preds, targets=targets)
@@ -103,7 +103,7 @@ def train(train_loader: torch.utils.data.DataLoader,
             logger.info("Training steps: %s Loss: %.4f", step, loss.item())
 
         # predictions
-        preds = sigmoid(preds[:, -1])
+        preds = torch.sigmoid(preds[:, -1])
         targets = targets[:, -1]
 
         total_preds.append(preds.detach())
@@ -127,11 +127,11 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_targets = []
     for step, batch in enumerate(valid_loader):
         batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
+        preds = model(batch)
         targets = batch["correct"]
 
         # predictions
-        preds = sigmoid(preds[:, -1])
+        preds = torch.sigmoid(preds[:, -1])
         targets = targets[:, -1]
 
         total_preds.append(preds.detach())
@@ -153,10 +153,10 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
     total_preds = []
     for step, batch in enumerate(test_loader):
         batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
+        preds = model(batch)
 
         # predictions
-        preds = sigmoid(preds[:, -1])
+        preds = torch.sigmoid(preds[:, -1])
         preds = preds.cpu().detach().numpy()
         total_preds += list(preds)
 
@@ -174,27 +174,17 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
 
 def get_model(args) -> nn.Module:
-    model_args = dict(
-        hidden_dim=args.hidden_dim,
-        n_layers=args.n_layers,
-        n_tests=args.n_tests,
-        n_questions=args.n_questions,
-        n_tags=args.n_tags,
-        n_heads=args.n_heads,
-        drop_out=args.drop_out,
-        max_seq_len=args.max_seq_len,
-    )
     try:
         model_name = args.model.lower()
         model = {
             "lstm": LSTM,
             "lstmattn": LSTMATTN,
             "bert": BERT,
-        }.get(model_name)(**model_args)
+        }.get(model_name)(args)
     except KeyError:
         logger.warn("No model name %s found", model_name)
     except Exception as e:
-        logger.warn("Error while loading %s with args: %s", model_name, model_args)
+        logger.warn("Error while loading %s with args: %s", model_name, args)
         raise e
     return model
 
