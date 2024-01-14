@@ -138,7 +138,7 @@ class DKTDataset(torch.utils.data.Dataset):
         data = {
             col: torch.tensor(row[i] + 1, dtype=torch.int)
             if i <= len(self.args.cate_cols)
-            else torch.tensor(row[i], dtype=torch.float).view(-1, 1)
+            else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
             for i, col in enumerate(self.args.columns[1:])
         }
 
