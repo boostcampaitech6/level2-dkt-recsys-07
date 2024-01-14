@@ -15,6 +15,14 @@ from .valid import make_valid
 class Preprocess:
     def __init__(self, args):
         self.args = args
+
+        # 카테고리 사이즈 설정
+        self.cate_sizes = {col: None for col in self.args.cate_cols}
+        # 범주형 컬럼 설정
+        self.cate_cols = self.args.cate_cols
+        # 연속형 컬럼 설정
+        self.cont_cols = self.args.cont_cols
+
         self.train_data = None
         self.test_data = None
 
@@ -58,12 +66,11 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df: pd.DataFrame, is_train: bool = True) -> pd.DataFrame:
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
 
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
 
-        for col in cate_cols:
+        for col in self.cate_cols:
             le = LabelEncoder()
             if is_train:
                 # For UNKNOWN class
@@ -73,15 +80,14 @@ class Preprocess:
             else:
                 label_path = os.path.join(self.args.asset_dir, col + "_classes.npy")
                 le.classes_ = np.load(label_path)
-
-                df[col] = df[col].apply(
-                    lambda x: x if str(x) in le.classes_ else "unknown"
-                )
-
-            # 모든 컬럼이 범주형이라고 가정
-            df[col] = df[col].astype(str)
-            test = le.transform(df[col])
-            df[col] = test
+                if col != "userID":
+                    df[col] = df[col].apply(
+                        lambda x: x if str(x) in le.classes_ else "unknown"
+                    )
+            if col != "userID":
+                df[col] = df[col].astype(str)
+                test = le.transform(df[col])
+                df[col] = test
 
         def convert_time(s: str):
             timestamp = time.mktime(
@@ -94,6 +100,21 @@ class Preprocess:
 
     def __feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
         # TODO: Fill in if needed
+        df['BigTag'] = df['assessmentItemID'].str[2]
+
+        # 각 문제별 정답률 계산
+        answer_rates = df.groupby('assessmentItemID')['answerCode'].agg(['sum', 'count'])
+        answer_rates['rate'] = answer_rates['sum'] / answer_rates['count']
+
+        # 원본 데이터프레임에 정답률 추가
+        df = df.merge(answer_rates['rate'], on='assessmentItemID', how='left')
+    
+        df['user_correct_answer'] = df.groupby('userID')['answerCode'].transform(lambda x: x.cumsum().shift(1))
+        df['user_total_answer'] = df.groupby('userID')['answerCode'].cumcount()
+        df['user_acc'] = df['user_correct_answer']/df['user_total_answer']
+        
+        df = df.fillna(0)
+
         return df
 
     def load_data_from_file(self, file_name: str, is_train: bool = True) -> np.ndarray:
@@ -102,30 +123,25 @@ class Preprocess:
         df = self.__feature_engineering(df)
         df = self.__preprocessing(df, is_train)
 
+        self.args.cate_sizes = {}
+
         # 추후 feature를 embedding할 시에 embedding_layer의 input 크기를 결정할때 사용
+        # 각 범주형 변수의 고유 카테고리 개수 계산 및 저장
+        for col in self.cate_cols:
+            file_path = os.path.join(self.args.asset_dir, f"{col}_classes.npy")
+            self.args.cate_sizes[col] = len(np.load(file_path))
 
-        self.args.n_questions = len(
-            np.load(os.path.join(self.args.asset_dir, "assessmentItemID_classes.npy"))
-        )
-        self.args.n_tests = len(
-            np.load(os.path.join(self.args.asset_dir, "testId_classes.npy"))
-        )
-        self.args.n_tags = len(
-            np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
-        )
 
+        # 데이터 정렬
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
-        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
+
+        # 동적 컬럼 처리: 범주형 및 연속형 컬럼을 args에서 가져옴
+        columns = self.cate_cols + self.cont_cols + ["answerCode"]
         group = (
             df[columns]
             .groupby("userID")
             .apply(
-                lambda r: (
-                    r["testId"].values,
-                    r["assessmentItemID"].values,
-                    r["KnowledgeTag"].values,
-                    r["answerCode"].values,
-                )
+                lambda r: tuple(r[col].values for col in columns[1:])  # 첫 컬럼 'userID' 제외
             )
         )
         return group.values
@@ -140,20 +156,31 @@ class Preprocess:
 class DKTDataset(torch.utils.data.Dataset):
     def __init__(self, data: np.ndarray, args):
         self.data = data
+        self.args = args
         self.max_seq_len = args.max_seq_len
+        self.cate_cols = args.cate_cols  # 범주형 컬럼
+        self.cont_cols = args.cont_cols  # 연속형 컬럼
 
     def __getitem__(self, index: int) -> dict:
         row = self.data[index]
-        
-        # Load from data
-        test, question, tag, correct = row[0], row[1], row[2], row[3]
-        data = {
-            "test": torch.tensor(test + 1, dtype=torch.int),
-            "question": torch.tensor(question + 1, dtype=torch.int),
-            "tag": torch.tensor(tag + 1, dtype=torch.int),
-            "correct": torch.tensor(correct, dtype=torch.int),
-        }
 
+        # 범주형 및 연속형 데이터 분리
+        x_cate_cols = self.cate_cols.copy()
+        if "userID" in x_cate_cols:  # self.cate_cols의 복사본 생성
+            x_cate_cols.remove("userID")  # 복사본에서 "userID" 제거
+        total_cols = []
+        total_cols = x_cate_cols +self.cont_cols
+        
+        data = {}
+
+        for i, col in enumerate(total_cols):
+            if col in x_cate_cols:
+                data[col] = torch.tensor(row[i]+1, dtype=torch.int)
+            else:
+                data[col] = torch.tensor(row[i], dtype=torch.float)
+                
+        correct = row[-1]
+        data["correct"] = torch.tensor(correct, dtype=torch.int)
         # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
         seq_len = len(row[0])
         if seq_len > self.max_seq_len:
@@ -177,7 +204,6 @@ class DKTDataset(torch.utils.data.Dataset):
         interaction_mask[0] = 0
         interaction = (interaction * interaction_mask).to(torch.int64)
         data["interaction"] = interaction
-        data = {k: v.int() for k, v in data.items()}
         return data
 
     def __len__(self) -> int:
