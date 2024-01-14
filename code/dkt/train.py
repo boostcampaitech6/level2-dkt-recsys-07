@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -27,9 +28,16 @@ def main(args: DictConfig):
     preprocess.load_train_data(file_name=args.file_name)
     train_data: np.ndarray = preprocess.get_train_data()
     train_data, valid_data = preprocess.split_data(data=train_data, seed=args.seed)
+
     wandb.init(
         project="dkt",
         config=OmegaConf.to_container(args, resolve=True, throw_on_missing=True),
+    )
+    args.model_dir = os.path.join(
+        args.model_dir,
+        args.model.lower(),
+        datetime.utcfromtimestamp(wandb.run.start_time).strftime("%Y-%m-%d_%H:%M:%S")
+        + wandb.run.name,
     )
 
     logger.info("Building Model ...")
@@ -37,6 +45,8 @@ def main(args: DictConfig):
 
     logger.info("Start Training ...")
     trainer.run(args=args, train_data=train_data, valid_data=valid_data, model=model)
+
+    OmegaConf.save(config=args, f=os.path.join(args.model_dir, "default.yaml"))
 
 
 if __name__ == "__main__":
