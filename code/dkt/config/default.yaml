@@ -14,7 +14,7 @@ test_file_name: "test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
 # Training Parameters
-num_workers: 1  # Number of workers
+num_workers: 0  # Number of workers
 n_epochs: 20  # Number of training epochs
 batch_size: 64  # Batch size
 lr: 0.0001  # Learning rate
@@ -30,6 +30,13 @@ n_heads: 2  # Number of heads in the model
 drop_out: 0.2  # Dropout rate
 
 # Model, Optimizer, and Scheduler Types
-model: lstm  # Type of model to use
+model: bert  # Type of model to use
 optimizer: adam  # Type of optimizer
 scheduler: plateau  # Type of learning rate scheduler
+
+# column setting (userID must be fixed)
+cate_cols: ["userID", "assessmentItemID", "testId", "KnowledgeTag",'BigTag']
+cont_cols: ['rate','user_correct_answer','user_total_answer','user_acc']
+
+#custom
+cv: 0
