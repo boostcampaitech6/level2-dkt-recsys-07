@@ -22,13 +22,15 @@ class ModelBase(nn.Module):
         self.embedding_dict["Interaction"] = nn.Embedding(3, intd)
 
         # Concatentaed Embedding Projection
+        if args.cont_cols == []:
+            hd *= 2
         self.comb_proj = nn.Linear(intd * (len(self.embedding_dict)), hd)
         self.cont_proj = nn.Linear(len(self.args.cont_cols), hd)
         self.category_layer_normalization = nn.LayerNorm(hd)
         self.continuous_layer_normalization = nn.LayerNorm(hd)
 
         # Fully connected layer
-        self.fc = nn.Linear(2 * hd, 1)
+        self.fc = nn.Linear(2 * args.hidden_dim, 1)
 
     def forward(self, **input):
         batch_size = input["Interaction"].size(0)
@@ -43,17 +45,18 @@ class ModelBase(nn.Module):
         X = self.comb_proj(embed)
         X = self.category_layer_normalization(X)
         # Continuos cols
-        conts = []
-        for col in self.args.cont_cols:
-            conts.append(input[col].float())
-        if len(self.args.cont_cols) > 1:
-            conts = torch.cat(conts, dim=2)
-        else:
-            conts = conts[-1]
-        Y = self.cont_proj(conts)
-        Y = self.continuous_layer_normalization(Y)
+        if self.args.cont_cols:
+            conts = []
+            for col in self.args.cont_cols:
+                conts.append(input[col].float())
+            if len(self.args.cont_cols) > 1:
+                conts = torch.cat(conts, dim=2)
+            else:
+                conts = conts[-1]
+            Y = self.cont_proj(conts)
+            Y = self.continuous_layer_normalization(Y)
 
-        X = torch.cat((X, Y), dim=2)
+            X = torch.cat((X, Y), dim=2)
         return X, batch_size
 
 
