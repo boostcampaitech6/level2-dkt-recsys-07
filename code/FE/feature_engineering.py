@@ -84,29 +84,30 @@ df['time_diff_ver2']=pd.to_timedelta(df['time_diff_ver2']).dt.total_seconds()
 scaler = MinMaxScaler()
 df['time_diff_ver2']=scaler.fit_transform(df['time_diff_ver2'].values.reshape(-1, 1))
 
-print('소요시간 범주화')
-df['5_sec']=0
-df['10_sec']=0
-df['1_min']=0
-df['3_min']=0
-df['5_min']=0
-df['more_5_min']=0
-df['nan']=0
+print('소요시간 범주화, label encoding')
+df['time_diff_cate']=0
+# df['5_sec']=0
+# df['10_sec']=0
+# df['1_min']=0
+# df['3_min']=0
+# df['5_min']=0
+# df['more_5_min']=0
+# df['nan']=0
 for i,row in temp_df.iterrows():
     if row['time_diff']<=pd.Timedelta('5 seconds'):
-        df.at[i,'5_sec']=1
+        df.at[i,'time_diff_cate']=0
     elif row['time_diff']<=pd.Timedelta('10 seconds'):
-        df.at[i,'10_sec']=1
+        df.at[i,'time_diff_cate']=1
     elif row['time_diff']<=pd.Timedelta('1 minutes'):
-        df.at[i,'1_min']=1
+        df.at[i,'time_diff_cate']=2
     elif row['time_diff']<=pd.Timedelta('3 minutes'):
-        df.at[i,'3_min']=1
+        df.at[i,'time_diff_cate']=3
     elif row['time_diff']<=pd.Timedelta('5 minutes'):
-        df.at[i,'5_min']=1
+        df.at[i,'time_diff_cate']=4
     elif row['time_diff'] > pd.Timedelta('5 minutes'):
-        df.at[i,'more_5_min']=1
+        df.at[i,'time_diff_cate']=5
     else:
-        df.at[i,'nan']=1
+        df.at[i,'time_diff_cate']=6
 
 print('FE 완료:',datetime.now())
 print('df nan 개수')
