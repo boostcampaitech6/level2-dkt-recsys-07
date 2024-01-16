@@ -4,136 +4,103 @@ from transformers.models.bert.modeling_bert import BertConfig, BertEncoder, Bert
 
 
 class ModelBase(nn.Module):
-    def __init__(
-        self,
-        hidden_dim: int = 64,
-        n_layers: int = 2,
-        n_tests: int = 1538,
-        n_questions: int = 9455,
-        n_tags: int = 913,
-    ):
+    def __init__(self, args):
         super().__init__()
-        self.hidden_dim = hidden_dim
-        self.n_layers = n_layers
-        self.n_tests = n_tests
-        self.n_questions = n_questions
-        self.n_tags = n_tags
+        self.args = args
+        self.hidden_dim = args.hidden_dim
+        self.n_layers = args.n_layers
 
         # Embeddings
         # hd: Hidden dimension, intd: Intermediate hidden dimension
-        hd, intd = hidden_dim, hidden_dim // 3
-        self.embedding_interaction = nn.Embedding(3, intd) # interaction은 현재 correct로 구성되어있다. correct(1, 2) + padding(0)
-        self.embedding_test = nn.Embedding(n_tests + 1, intd)
-        self.embedding_question = nn.Embedding(n_questions + 1, intd)
-        self.embedding_tag = nn.Embedding(n_tags + 1, intd)
+        hd, intd = self.hidden_dim, self.hidden_dim // 3
+        self.embedding_dict = nn.ModuleDict(
+            {
+                col: nn.Embedding(args.n_cate[col] + 1, intd)
+                for col in self.args.cate_cols
+            }
+        )
+        self.embedding_dict["Interaction"] = nn.Embedding(3, intd)
 
         # Concatentaed Embedding Projection
-        self.comb_proj = nn.Linear(intd * 4, hd)
+        if args.cont_cols == []:
+            hd *= 2
+        self.comb_proj = nn.Linear(intd * (len(self.embedding_dict)), hd)
+        self.cont_proj = nn.Linear(len(self.args.cont_cols), hd)
+        self.category_layer_normalization = nn.LayerNorm(hd)
+        self.continuous_layer_normalization = nn.LayerNorm(hd)
 
         # Fully connected layer
-        self.fc = nn.Linear(hd, 1)
-    
-    def forward(self, test, question, tag, correct, mask, interaction):
-        batch_size = interaction.size(0)
-        # Embedding
-        embed_interaction = self.embedding_interaction(interaction.int())
-        embed_test = self.embedding_test(test.int())
-        embed_question = self.embedding_question(question.int())
-        embed_tag = self.embedding_tag(tag.int())
-        embed = torch.cat(
-            [
-                embed_interaction,
-                embed_test,
-                embed_question,
-                embed_tag,
-            ],
-            dim=2,
+        self.fc = nn.Linear(2 * args.hidden_dim, 1)
+
+    def forward(self, **input):
+        batch_size = input["Interaction"].size(0)
+        # Categorical cols
+        embeddings = []
+        for col in self.args.cate_cols:
+            embeddings.append(self.embedding_dict[col](input[col].int()))
+        embeddings.append(
+            self.embedding_dict["Interaction"](input["Interaction"].int())
         )
+        embed = torch.cat(embeddings, dim=2)
         X = self.comb_proj(embed)
+        X = self.category_layer_normalization(X)
+        # Continuos cols
+        if self.args.cont_cols:
+            conts = []
+            for col in self.args.cont_cols:
+                conts.append(input[col].float())
+            if len(self.args.cont_cols) > 1:
+                conts = torch.cat(conts, dim=2)
+            else:
+                conts = conts[-1]
+            Y = self.cont_proj(conts)
+            Y = self.continuous_layer_normalization(Y)
+
+            X = torch.cat((X, Y), dim=2)
         return X, batch_size
 
 
 class LSTM(ModelBase):
-    def __init__(
-        self,
-        hidden_dim: int = 64,
-        n_layers: int = 2,
-        n_tests: int = 1538,
-        n_questions: int = 9455,
-        n_tags: int = 913,
-        **kwargs
-    ):
-        super().__init__(
-            hidden_dim,
-            n_layers,
-            n_tests,
-            n_questions,
-            n_tags
-        )
+    def __init__(self, args):
+        super().__init__(args)
         self.lstm = nn.LSTM(
-            self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
+            2 * args.hidden_dim, 2 * args.hidden_dim, args.n_layers, batch_first=True
         )
 
-    def forward(self, test, question, tag, correct, mask, interaction):
-        X, batch_size = super().forward(test=test,
-                                        question=question,
-                                        tag=tag,
-                                        correct=correct,
-                                        mask=mask,
-                                        interaction=interaction)
+    def forward(self, **input):
+        X, batch_size = super().forward(**input)
         out, _ = self.lstm(X)
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
         return out
 
 
 class LSTMATTN(ModelBase):
-    def __init__(
-        self,
-        hidden_dim: int = 64,
-        n_layers: int = 2,
-        n_tests: int = 1538,
-        n_questions: int = 9455,
-        n_tags: int = 913,
-        n_heads: int = 2,
-        drop_out: float = 0.1,
-        **kwargs
-    ):
-        super().__init__(
-            hidden_dim,
-            n_layers,
-            n_tests,
-            n_questions,
-            n_tags
-        )
-        self.n_heads = n_heads
-        self.drop_out = drop_out
+    def __init__(self, args):
+        super().__init__(args)
+        self.n_heads = args.n_heads
+        self.drop_out = args.drop_out
         self.lstm = nn.LSTM(
-            self.hidden_dim, self.hidden_dim, self.n_layers, batch_first=True
+            2 * args.hidden_dim, 2 * args.hidden_dim, args.n_layers, batch_first=True
         )
         self.config = BertConfig(
             3,  # not used
-            hidden_size=self.hidden_dim,
+            hidden_size=2 * args.hidden_dim,
             num_hidden_layers=1,
             num_attention_heads=self.n_heads,
-            intermediate_size=self.hidden_dim,
-            hidden_dropout_prob=self.drop_out,
-            attention_probs_dropout_prob=self.drop_out,
+            intermediate_size=2 * args.hidden_dim,
+            hidden_dropout_prob=args.drop_out,
+            attention_probs_dropout_prob=args.drop_out,
         )
         self.attn = BertEncoder(self.config)
 
-    def forward(self, test, question, tag, correct, mask, interaction):
-        X, batch_size = super().forward(test=test,
-                                        question=question,
-                                        tag=tag,
-                                        correct=correct,
-                                        mask=mask,
-                                        interaction=interaction)
+    def forward(self, **input):
+        X, batch_size = super().forward(**input)
 
         out, _ = self.lstm(X)
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
 
-        extended_attention_mask = mask.unsqueeze(1).unsqueeze(2)
+        extended_attention_mask = input["mask"].unsqueeze(1).unsqueeze(2)
         extended_attention_mask = extended_attention_mask.to(dtype=torch.float32)
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
         head_mask = [None] * self.n_layers
@@ -146,48 +113,25 @@ class LSTMATTN(ModelBase):
 
 
 class BERT(ModelBase):
-    def __init__(
-        self,
-        hidden_dim: int = 64,
-        n_layers: int = 2,
-        n_tests: int = 1538,
-        n_questions: int = 9455,
-        n_tags: int = 913,
-        n_heads: int = 2,
-        drop_out: float = 0.1,
-        max_seq_len: float = 20,
-        **kwargs
-    ):
-        super().__init__(
-            hidden_dim,
-            n_layers,
-            n_tests,
-            n_questions,
-            n_tags
-        )
-        self.n_heads = n_heads
-        self.drop_out = drop_out
+    def __init__(self, args):
+        super().__init__(args)
+        self.n_heads = args.n_heads
+        self.drop_out = args.drop_out
         # Bert config
         self.config = BertConfig(
             3,  # not used
-            hidden_size=self.hidden_dim,
-            num_hidden_layers=self.n_layers,
-            num_attention_heads=self.n_heads,
-            max_position_embeddings=max_seq_len,
+            hidden_size=2 * args.hidden_dim,
+            num_hidden_layers=args.n_layers,
+            num_attention_heads=args.n_heads,
+            max_position_embeddings=args.max_seq_len,
         )
         self.encoder = BertModel(self.config)
 
-    def forward(self, test, question, tag, correct, mask, interaction):
-        X, batch_size = super().forward(test=test,
-                                        question=question,
-                                        tag=tag,
-                                        correct=correct,
-                                        mask=mask,
-                                        interaction=interaction)
+    def forward(self, **input):
+        X, batch_size = super().forward(**input)
 
-        encoded_layers = self.encoder(inputs_embeds=X, attention_mask=mask)
+        encoded_layers = self.encoder(inputs_embeds=X, attention_mask=input["mask"])
         out = encoded_layers[0]
-        out = out.contiguous().view(batch_size, -1, self.hidden_dim)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
         return out
-

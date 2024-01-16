@@ -58,12 +58,10 @@ class Preprocess:
         np.save(le_path, encoder.classes_)
 
     def __preprocessing(self, df: pd.DataFrame, is_train: bool = True) -> pd.DataFrame:
-        cate_cols = ["assessmentItemID", "testId", "KnowledgeTag"]
-
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
 
-        for col in cate_cols:
+        for col in self.args.cate_cols:
             le = LabelEncoder()
             if is_train:
                 # For UNKNOWN class
@@ -104,29 +102,19 @@ class Preprocess:
 
         # 추후 feature를 embedding할 시에 embedding_layer의 input 크기를 결정할때 사용
 
-        self.args.n_questions = len(
-            np.load(os.path.join(self.args.asset_dir, "assessmentItemID_classes.npy"))
-        )
-        self.args.n_tests = len(
-            np.load(os.path.join(self.args.asset_dir, "testId_classes.npy"))
-        )
-        self.args.n_tags = len(
-            np.load(os.path.join(self.args.asset_dir, "KnowledgeTag_classes.npy"))
-        )
+        self.args.n_cate = {
+            col: len(np.load(os.path.join(self.args.asset_dir, col + "_classes.npy")))
+            for col in self.args.cate_cols
+        }
 
         df = df.sort_values(by=["userID", "Timestamp"], axis=0)
-        columns = ["userID", "assessmentItemID", "testId", "answerCode", "KnowledgeTag"]
+        self.args.columns = (
+            ["userID", "answerCode"] + self.args.cate_cols + self.args.cont_cols
+        )
         group = (
-            df[columns]
+            df[self.args.columns]
             .groupby("userID")
-            .apply(
-                lambda r: (
-                    r["testId"].values,
-                    r["assessmentItemID"].values,
-                    r["KnowledgeTag"].values,
-                    r["answerCode"].values,
-                )
-            )
+            .apply(lambda r: (tuple(r[col].values for col in self.args.columns[1:])))
         )
         return group.values
 
@@ -140,18 +128,18 @@ class Preprocess:
 class DKTDataset(torch.utils.data.Dataset):
     def __init__(self, data: np.ndarray, args):
         self.data = data
+        self.args = args
         self.max_seq_len = args.max_seq_len
 
     def __getitem__(self, index: int) -> dict:
         row = self.data[index]
 
         # Load from data
-        test, question, tag, correct = row[0], row[1], row[2], row[3]
         data = {
-            "test": torch.tensor(test + 1, dtype=torch.int),
-            "question": torch.tensor(question + 1, dtype=torch.int),
-            "tag": torch.tensor(tag + 1, dtype=torch.int),
-            "correct": torch.tensor(correct, dtype=torch.int),
+            col: torch.tensor(row[i] + 1, dtype=torch.int)
+            if i <= len(self.args.cate_cols)
+            else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
+            for i, col in enumerate(self.args.columns[1:])
         }
 
         # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
@@ -163,20 +151,18 @@ class DKTDataset(torch.utils.data.Dataset):
         else:
             for k, seq in data.items():
                 # Pre-padding non-valid sequences
-                tmp = torch.zeros(self.max_seq_len)
+                tmp = torch.zeros([self.max_seq_len, 1][: len(data[k].size())])
                 tmp[self.max_seq_len - seq_len :] = data[k]
                 data[k] = tmp
             mask = torch.zeros(self.max_seq_len, dtype=torch.int16)
             mask[-seq_len:] = 1
         data["mask"] = mask
-
-        # Generate interaction
-        interaction = data["correct"] + 1  # 패딩을 위해 correct값에 1을 더해준다.
+        interaction = data["answerCode"]
         interaction = interaction.roll(shifts=1)
         interaction_mask = data["mask"].roll(shifts=1)
         interaction_mask[0] = 0
         interaction = (interaction * interaction_mask).to(torch.int64)
-        data["interaction"] = interaction
+        data["Interaction"] = interaction
         data = {k: v.int() for k, v in data.items()}
         return data
 

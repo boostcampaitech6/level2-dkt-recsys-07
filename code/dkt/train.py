@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -32,12 +33,20 @@ def main(args: DictConfig):
         project="dkt",
         config=OmegaConf.to_container(args, resolve=True, throw_on_missing=True),
     )
+    args.model_dir = os.path.join(
+        args.model_dir,
+        args.model.lower(),
+        datetime.utcfromtimestamp(wandb.run.start_time).strftime("%Y-%m-%d_%H:%M:%S")
+        + wandb.run.name,
+    )
 
     logger.info("Building Model ...")
     model: torch.nn.Module = trainer.get_model(args=args).to(args.device)
 
     logger.info("Start Training ...")
     trainer.run(args=args, train_data=train_data, valid_data=valid_data, model=model)
+
+    OmegaConf.save(config=args, f=os.path.join(args.model_dir, "default.yaml"))
 
 
 if __name__ == "__main__":

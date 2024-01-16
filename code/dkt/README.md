@@ -9,7 +9,7 @@ conda init
 (base) conda activate dkt
 (dkt) pip install -r requirements.txt
 (dkt) python train.py
-(dkt) python inference.py
+(dkt) python inference.py -cp "saved_model_dir" #saved_model_dir을 모델과 default.yaml이 저장된 폴더의 경로로 수정해주세요.
 ```
 
 ## Files
