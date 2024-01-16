@@ -106,12 +106,12 @@ df['session_total_time'] = scaler.fit_transform(df['session_total_time'].values.
 
 print('소요시간 범주화, label encoding')
 conditions = [
-    temp_df['time_diff'] <= pd.Timedelta('5 seconds'),
-    temp_df['time_diff'] <= pd.Timedelta('10 seconds'),
-    temp_df['time_diff'] <= pd.Timedelta('1 minutes'),
-    temp_df['time_diff'] <= pd.Timedelta('3 minutes'),
-    temp_df['time_diff'] <= pd.Timedelta('5 minutes'),
-    temp_df['time_diff'] > pd.Timedelta('5 minutes')
+    temp_df['time_diff_ver1'] <= pd.Timedelta('5 seconds'),
+    temp_df['time_diff_ver1'] <= pd.Timedelta('10 seconds'),
+    temp_df['time_diff_ver1'] <= pd.Timedelta('1 minutes'),
+    temp_df['time_diff_ver1'] <= pd.Timedelta('3 minutes'),
+    temp_df['time_diff_ver1'] <= pd.Timedelta('5 minutes'),
+    temp_df['time_diff_ver1'] > pd.Timedelta('5 minutes')
 ]
 
 choices = [0, 1, 2, 3, 4, 5]
