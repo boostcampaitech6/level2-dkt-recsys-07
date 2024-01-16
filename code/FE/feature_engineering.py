@@ -80,34 +80,42 @@ print('소요시간 추가: ver1 은 범주형으로 ver2는 연속형으로 사
 temp_df['time_diff_ver1']= temp_df.groupby('solving_session_ver1')['Timestamp'].diff(-1).abs()
 df['time_diff_ver2']= temp_df.groupby('solving_session_ver2')['Timestamp'].diff(-1).abs()
 df['time_diff_ver2'].fillna(pd.Timedelta(minutes=15),inplace=True)
-df['time_diff_ver2']=pd.to_timedelta(df['time_diff_ver2']).dt.total_seconds()
+
+# 시험지(세션)별 총 시간 추가
+print('시험지(세션)별 총 시간 추가')
+temp_df['time_diff_session_ver2']=df['time_diff_ver2']
+time_diff_group=temp_df.groupby('solving_session_ver2')['time_diff_session_ver2'].sum()
+time_diff_group = time_diff_group.reset_index()
+time_diff_group.columns = ['solving_session_ver2', 'session_total_time']
+temp_df = temp_df.merge(time_diff_group, on='solving_session_ver2',how='left')
+df['session_total_time'] =  pd.to_timedelta(temp_df['session_total_time']).dt.total_seconds()
+
+# 시험지 별 나머지 시간 계산
+print('시험지 별 나머지 시간 계산')
+df['time_diff_ver2']= pd.to_timedelta(df['time_diff_ver2']).dt.total_seconds()
+df['rest_time']=df['session_total_time']-df['time_diff_ver2']
+
+# 연속형 시간 변수 scale
+print('연속형 시간 변수 scale')
 scaler = MinMaxScaler()
-df['time_diff_ver2']=scaler.fit_transform(df['time_diff_ver2'].values.reshape(-1, 1))
+df['time_diff_ver2'] =scaler.fit_transform(df['time_diff_ver2'].values.reshape(-1, 1))
+df['rest_time'] = scaler.fit_transform(df['rest_time'].values.reshape(-1, 1))
+df['session_total_time'] = scaler.fit_transform(df['session_total_time'].values.reshape(-1, 1))
+
+
 
 print('소요시간 범주화, label encoding')
-df['time_diff_cate']=0
-# df['5_sec']=0
-# df['10_sec']=0
-# df['1_min']=0
-# df['3_min']=0
-# df['5_min']=0
-# df['more_5_min']=0
-# df['nan']=0
-for i,row in temp_df.iterrows():
-    if row['time_diff']<=pd.Timedelta('5 seconds'):
-        df.at[i,'time_diff_cate']=0
-    elif row['time_diff']<=pd.Timedelta('10 seconds'):
-        df.at[i,'time_diff_cate']=1
-    elif row['time_diff']<=pd.Timedelta('1 minutes'):
-        df.at[i,'time_diff_cate']=2
-    elif row['time_diff']<=pd.Timedelta('3 minutes'):
-        df.at[i,'time_diff_cate']=3
-    elif row['time_diff']<=pd.Timedelta('5 minutes'):
-        df.at[i,'time_diff_cate']=4
-    elif row['time_diff'] > pd.Timedelta('5 minutes'):
-        df.at[i,'time_diff_cate']=5
-    else:
-        df.at[i,'time_diff_cate']=6
+conditions = [
+    temp_df['time_diff'] <= pd.Timedelta('5 seconds'),
+    temp_df['time_diff'] <= pd.Timedelta('10 seconds'),
+    temp_df['time_diff'] <= pd.Timedelta('1 minutes'),
+    temp_df['time_diff'] <= pd.Timedelta('3 minutes'),
+    temp_df['time_diff'] <= pd.Timedelta('5 minutes'),
+    temp_df['time_diff'] > pd.Timedelta('5 minutes')
+]
+
+choices = [0, 1, 2, 3, 4, 5]
+df['time_diff_cate'] = np.select(conditions, choices, default=6)
 
 print('FE 완료:',datetime.now())
 print('df nan 개수')
