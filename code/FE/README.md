@@ -30,5 +30,5 @@ FE 대상 데이터(train/test) 파일 변경 시 코드 수정 필요함
 * prob_difficulty            : 문항 순서 별 난이도(1~13) 
 * time_diff_ver2             : 문제 별 풀이 소요 시간
 * session_total_time         : 시험지(풀이 세션) 별 총 소요시간
-* rest_time                  : (session_total_time - time_diff_ver2) 한 잔여 시간
+* rest_time                  : (time_diff_ver2/session_total_time) 한 풀이 소요 시간 비율
 * time_diff_cate             : time_diff_ver2의 범주형 변수(0~6/5초,10초,1분,3분,5분 기준)

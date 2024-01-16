@@ -90,10 +90,10 @@ time_diff_group.columns = ['solving_session_ver2', 'session_total_time']
 temp_df = temp_df.merge(time_diff_group, on='solving_session_ver2',how='left')
 df['session_total_time'] =  pd.to_timedelta(temp_df['session_total_time']).dt.total_seconds()
 
-# 시험지 별 나머지 시간 계산
-print('시험지 별 나머지 시간 계산')
+# 시험지 별 풀이시간/총시간
+print('시험지 별 문제 (풀이 시간/총 소요시간) 비율 계산')
 df['time_diff_ver2']= pd.to_timedelta(df['time_diff_ver2']).dt.total_seconds()
-df['rest_time']=df['session_total_time']-df['time_diff_ver2']
+df['rest_time']=df['time_diff_ver2']/df['session_total_time']
 
 # 연속형 시간 변수 scale
 print('연속형 시간 변수 scale')
@@ -102,9 +102,8 @@ df['time_diff_ver2'] =scaler.fit_transform(df['time_diff_ver2'].values.reshape(-
 df['rest_time'] = scaler.fit_transform(df['rest_time'].values.reshape(-1, 1))
 df['session_total_time'] = scaler.fit_transform(df['session_total_time'].values.reshape(-1, 1))
 
-
-
 print('소요시간 범주화, label encoding')
+# nan: 6 으로 인코딩함
 conditions = [
     temp_df['time_diff_ver1'] <= pd.Timedelta('5 seconds'),
     temp_df['time_diff_ver1'] <= pd.Timedelta('10 seconds'),
