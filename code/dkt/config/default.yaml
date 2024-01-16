@@ -15,6 +15,7 @@ model_name: "best_model.pt"  # Name of the model file
 
 # Training Parameters
 cv: 0
+stride: 0
 num_workers: 1  # Number of workers
 n_epochs: 200  # Number of training epochs
 batch_size: 64  # Batch size

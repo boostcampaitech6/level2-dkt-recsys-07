@@ -196,3 +196,18 @@ def get_loaders(
         )
 
     return train_loader, valid_loader
+
+
+def sliding_window(args, data: np.ndarray) -> np.ndarray:
+    if args.stride > 0:
+        stack = []
+        for user in data:
+            stack.append(user)
+            last = args.stride
+            while last < len(user):
+                stack.append(tuple([r[:-last] for r in user]))
+                last += args.stride
+        data = np.empty(len(stack), dtype=object)
+        for i, row in enumerate(stack):
+            data[-(i + 1)] = row
+    return data
