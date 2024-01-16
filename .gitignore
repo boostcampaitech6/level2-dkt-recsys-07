@@ -1,0 +1,17 @@
+# ignore data folder
+/data/
+
+# ignore .pyc
+*.pyc
+
+# ignore asset, models, wandb, outputs folders and log, ipynb, yaml files
+*asset/
+*models/
+*wandb/
+*.log
+*outputs/
+*.yaml
+*.ipynb
+
+#ignore automl outputs,
+*AutogluonModels/
