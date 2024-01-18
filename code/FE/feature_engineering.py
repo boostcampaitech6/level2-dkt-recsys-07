@@ -6,7 +6,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 dtype = {"userID": "int16", "answerCode": "int8", "KnowledgeTag": "int16"}
 DATA_PATH = "../../data/"
-DATA = os.path.join(DATA_PATH, "train_data.csv")
+DATA_FILE = "train_data.csv"
+DATA = os.path.join(DATA_PATH, DATA_FILE)
 
 df = pd.read_csv(DATA, dtype=dtype, parse_dates=["Timestamp"])
 df = df.sort_values(by=["userID", "Timestamp"]).reset_index(drop=True)
@@ -115,7 +116,7 @@ df["session_total_time"] = pd.to_timedelta(
 # 시험지 별 풀이시간/총시간
 print("시험지 별 문제 (풀이 시간/총 소요시간) 비율 계산")
 df["time_diff_ver2"] = pd.to_timedelta(df["time_diff_ver2"]).dt.total_seconds()
-df["rest_time"] = df["time_diff_ver2"] / df["session_total_time"]
+df["solving_time_rate"] = df["time_diff_ver2"] / df["session_total_time"]
 
 # 소요시간 범주화, label encoding
 print("소요시간 범주화, label encoding")
@@ -138,28 +139,46 @@ df["solving_session"] = temp_df.groupby("userID")["solving_session_ver2"].transf
 )
 
 # 유저마다 업데이트 되는 이전 문제 정답 여부
-df["prev_answer"] = df.groupby("userID")["answerCode"].shift(1)
+df["prev_answer"] = df.groupby("userID")["answerCode"].shift(1).fillna(-1)
 
 # 유저마다 업데이트 되는 태그 별 문제 풀이 개수 및 총 개수
 print("유저마다 업데이트 되는 태그 별 문제 풀이 개수, 총 개수 및 정답 개수")
 for tag in range(1, 10):
-    df[f'tag{tag}_count'] = df.groupby('userID')['BigTag'].transform(lambda x: (x == str(tag)).cumsum())
-    df[f'tag{tag}_total'] = df.groupby('userID')['BigTag'].transform(lambda x: (x == str(tag)).sum())
-    df[f'tag{tag}_correct'] = df.groupby('userID').apply(lambda x: (x['BigTag'] == str(tag)) & (x['answerCode'] == 1)).cumsum().reset_index(level=0, drop=True)
+    temp_df[f"tag{tag}_count"] = temp_df.groupby("userID")["BigTag"].transform(
+        lambda x: (x == str(tag)).cumsum()
+    )
+    temp_df[f"tag{tag}_total"] = temp_df.groupby("userID")["BigTag"].transform(
+        lambda x: (x == str(tag)).sum()
+    )
+    temp_df[f"tag{tag}_correct"] = (
+        temp_df.groupby("userID")
+        .apply(lambda x: (x["BigTag"] == str(tag)) & (x["answerCode"] == 1))
+        .cumsum()
+        .reset_index(level=0, drop=True)
+    )
 
-# 하나의 컬럼에 BigTag 별 총 개수 넣기 
-df['total_tag_sum'] = df.apply(lambda row: row[f'tag{row["BigTag"]}_total'], axis=1)
-
-#태그 별 정답률 컬럼
-print("유저마다 업데이트 되는 태그 별 정답률")
-for tag in range(1, 10):    
-    df[f'tag{tag}_correct_rate'] = df.apply(lambda row: row[f'tag{tag}_correct']/row['total_tag_sum'], axis=1)
+# 하나의 컬럼에 BigTag 별 총 개수 넣기
+df["total_tag_sum"] = temp_df.apply(
+    lambda row: row[f'tag{row["BigTag"]}_total'], axis=1
+)
+df["total_tag_count"] = temp_df.apply(
+    lambda row: row[f'tag{row["BigTag"]}_count'], axis=1
+)
+df["total_tag_correct"] = temp_df.apply(
+    lambda row: row[f'tag{row["BigTag"]}_correct'], axis=1
+)
+df["tag_correct_rate"] = df.apply(
+    lambda row: row["total_tag_correct"] / row["total_tag_sum"], axis=1
+)
+df["tag_correct_cum_rate"] = df.apply(
+    lambda row: row["total_tag_correct"] / row["total_tag_count"], axis=1
+)
 
 # 연속형 변수 scale
 print("연속형 변수 scale")
 scaler = MinMaxScaler()
 df["time_diff_ver2"] = scaler.fit_transform(df["time_diff_ver2"].values.reshape(-1, 1))
-df["rest_time"] = scaler.fit_transform(df["rest_time"].values.reshape(-1, 1))
+df["solving_time_rate"] = scaler.fit_transform(df["rest_time"].values.reshape(-1, 1))
 df["session_total_time"] = scaler.fit_transform(
     df["session_total_time"].values.reshape(-1, 1)
 )
@@ -174,14 +193,22 @@ df["prob_order"] = scaler.fit_transform(df["prob_order"].values.reshape(-1, 1))
 df["solving_session"] = scaler.fit_transform(
     df["solving_session"].values.reshape(-1, 1)
 )
-for tag in range(1, 10):
-    df[f'tag{tag}_count'] = scaler.fit_transform(df[f'tag{tag}_count'].values.reshape(-1, 1))
-    df[f'tag{tag}_total'] = scaler.fit_transform(df[f'tag{tag}_total'].values.reshape(-1, 1))
-    df[f'tag{tag}_correct'] = scaler.fit_transform(df[f'tag{tag}_correct'].values.reshape(-1, 1))
-df['total_tag_sum'] = scaler.fit_transform(df['total_tag_sum'].values.reshape(-1, 1))
+df["total_tag_sum"] = scaler.fit_transform(df["total_tag_sum"].values.reshape(-1, 1))
+df["total_tag_count"] = scaler.fit_transform(
+    df["total_tag_count"].values.reshape(-1, 1)
+)
+df["total_tag_correct"] = scaler.fit_transform(
+    df["total_tag_correct"].values.reshape(-1, 1)
+)
+df["tag_correct_rate"] = scaler.fit_transform(
+    df["tag_correct_rate"].values.reshape(-1, 1)
+)
+df["tag_correct_cum_rate"] = scaler.fit_transform(
+    df["tag_correct_cum_rate"].values.reshape(-1, 1)
+)
 
 print("FE 완료:", datetime.now())
 print("df nan 개수")
 print(df.isna().sum())
-DATA = os.path.join(DATA_PATH, "FE_train_data.csv")
+DATA = os.path.join(DATA_PATH, "FE_"+DATA_FILE)
 df.to_csv(DATA, index=False)
