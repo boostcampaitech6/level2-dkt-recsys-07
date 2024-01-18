@@ -61,6 +61,8 @@ class Preprocess:
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
 
+        df["Raw_userID"] = df["userID"]
+
         for col in self.args.cate_cols:
             le = LabelEncoder()
             if is_train:
@@ -107,13 +109,13 @@ class Preprocess:
             for col in self.args.cate_cols
         }
 
-        df = df.sort_values(by=["userID", "Timestamp"], axis=0)
+        df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
         self.args.columns = (
-            ["userID", "answerCode"] + self.args.cate_cols + self.args.cont_cols
+            ["Raw_userID", "answerCode"] + self.args.cate_cols + self.args.cont_cols
         )
         group = (
             df[self.args.columns]
-            .groupby("userID")
+            .groupby("Raw_userID")
             .apply(lambda r: (tuple(r[col].values for col in self.args.columns[1:])))
         )
         return group.values
@@ -137,9 +139,11 @@ class DKTDataset(torch.utils.data.Dataset):
         # Load from data
         data = {
             col: torch.tensor(row[i] + 1, dtype=torch.int)
-            if i <= len(self.args.cate_cols)
+            if i < len(["answerCode"] + self.args.cate_cols)
             else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
-            for i, col in enumerate(self.args.columns[1:])
+            for i, col in enumerate(
+                ["answerCode"] + self.args.cate_cols + self.args.cont_cols
+            )
         }
 
         # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
