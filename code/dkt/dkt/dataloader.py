@@ -200,6 +200,7 @@ def get_loaders(
 
 def sliding_window(args, data: np.ndarray) -> np.ndarray:
     if args.stride > 0:
+        old_len = len(data)
         stack = []
         for user in data:
             stack.append(user)
@@ -210,4 +211,5 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
         data = np.empty(len(stack), dtype=object)
         for i, rows in enumerate(stack):
             data[-(i + 1)] = rows
+        print(f"Augmentated from {old_len} to {len(stack)}")
     return data
