@@ -110,6 +110,12 @@ conditions = [
 choices = [0, 1, 2, 3, 4, 5]
 df['time_diff_cate'] = np.select(conditions, choices, default=6)
 
+# 유저마다 업데이트 되는 세션 추가
+df['solving_session'] = temp_df.groupby('userID')['solving_session_ver2'].transform(lambda x: pd.factorize(x)[0] + 1)
+
+# 유저마다 업데이트 되는 이전 문제 정답 여부
+df['prev_answer'] = df.groupby('userID')['answerCode'].shift(1)
+
 # 연속형 변수 scale
 print('연속형 변수 scale')
 scaler = MinMaxScaler()
@@ -120,6 +126,7 @@ df['user_correct_answer'] = scaler.fit_transform(df['user_correct_answer'].value
 df['user_total_answer'] = scaler.fit_transform(df['user_total_answer'].values.reshape(-1, 1))
 df['user_acc'] = scaler.fit_transform(df['user_acc'].values.reshape(-1, 1))
 df['prob_order'] = scaler.fit_transform(df['prob_order'].values.reshape(-1, 1))
+df['solving_session'] = scaler.fit_transform(df['solving_session'].values.reshape(-1, 1))
 
 print('FE 완료:',datetime.now())
 print('df nan 개수')
