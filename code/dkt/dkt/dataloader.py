@@ -204,10 +204,10 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
         for user in data:
             stack.append(user)
             last = args.stride
-            while last < len(user):
+            while last < len(user[0]):
                 stack.append(tuple([r[:-last] for r in user]))
                 last += args.stride
         data = np.empty(len(stack), dtype=object)
-        for i, row in enumerate(stack):
-            data[-(i + 1)] = row
+        for i, rows in enumerate(stack):
+            data[-(i + 1)] = rows
     return data
