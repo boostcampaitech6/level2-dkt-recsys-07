@@ -53,6 +53,32 @@ class Preprocess:
             data_2 = data[size:]
         return data_1, data_2
 
+    def split_data_sequantially(
+        self, data: np.ndarray, ratio: float = 0.7, seed: int = 0
+    ) -> Tuple[np.ndarray]:
+        """
+        split data into two parts with a given ratio.
+        """
+        last_sequence_length = 0
+        train_user_data = []
+        valid_user_data = []
+        user_rows = []
+        for i, rows in enumerate(data):
+            if len(rows[0]) < last_sequence_length:
+                size = int(len(user_rows) * ratio)
+                train_user_data.extend(user_rows[:size])
+                valid_user_data.extend(user_rows[size:])
+                user_rows = []
+            user_rows.append(rows)
+            last_sequence_length = len(rows[0])
+        train_data = np.empty(len(train_user_data), dtype=object)
+        valid_data = np.empty(len(valid_user_data), dtype=object)
+        for i, rows in enumerate(train_user_data):
+            train_data[i] = rows
+        for i, rows in enumerate(valid_user_data):
+            valid_data[i] = rows
+        return train_data, valid_data
+
     def __save_labels(self, encoder: LabelEncoder, name: str) -> None:
         le_path = os.path.join(self.args.asset_dir, name + "_classes.npy")
         np.save(le_path, encoder.classes_)

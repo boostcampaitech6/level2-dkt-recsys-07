@@ -13,12 +13,15 @@ file_name: "train_data.csv"  # Name of the train file
 test_file_name: "test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
-# Training Parameters
+# Data Process Parameters
 cv: 0
-stride: 0
-num_workers: 1  # Number of workers
+stride: 50
+sequence_split: True
+
+# Training Parameters
+num_workers: 2  # Number of workers
 n_epochs: 200  # Number of training epochs
-batch_size: 64  # Batch size
+batch_size: 2048  # Batch size
 lr: 0.0001  # Learning rate
 clip_grad: 10  # Gradient clipping
 patience: 5  # Patience for early stopping
