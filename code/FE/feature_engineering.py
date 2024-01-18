@@ -210,5 +210,5 @@ df["tag_correct_cum_rate"] = scaler.fit_transform(
 print("FE 완료:", datetime.now())
 print("df nan 개수")
 print(df.isna().sum())
-DATA = os.path.join(DATA_PATH, "FE_"+DATA_FILE)
+DATA = os.path.join(DATA_PATH, "FE_" + DATA_FILE)
 df.to_csv(DATA, index=False)
