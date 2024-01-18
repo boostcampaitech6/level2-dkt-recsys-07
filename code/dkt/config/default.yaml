@@ -14,9 +14,10 @@ test_file_name: "test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
 # Data Process Parameters
+split_ratio: 0.7
 cv: 0
-stride: 50
-sequence_split: True
+stride: 100
+sequence_split: False
 
 # Training Parameters
 num_workers: 2  # Number of workers

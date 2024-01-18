@@ -30,10 +30,12 @@ def main(args: DictConfig):
     if args.sequence_split and args.stride > 0:
         train_data = sliding_window(args, train_data)
         train_data, valid_data = preprocess.split_data_sequantially(
-            data=train_data, seed=args.seed
+            data=train_data, seed=args.seed, ratio=args.split_ratio
         )
     else:
-        train_data, valid_data = preprocess.split_data(data=train_data, seed=args.seed)
+        train_data, valid_data = preprocess.split_data(
+            data=train_data, seed=args.seed, ratio=args.split_ratio
+        )
         train_data = sliding_window(args, train_data)
     wandb.init(
         project="dkt",
