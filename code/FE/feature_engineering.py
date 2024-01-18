@@ -95,13 +95,7 @@ print('시험지 별 문제 (풀이 시간/총 소요시간) 비율 계산')
 df['time_diff_ver2']= pd.to_timedelta(df['time_diff_ver2']).dt.total_seconds()
 df['rest_time']=df['time_diff_ver2']/df['session_total_time']
 
-# 연속형 시간 변수 scale
-print('연속형 시간 변수 scale')
-scaler = MinMaxScaler()
-df['time_diff_ver2'] =scaler.fit_transform(df['time_diff_ver2'].values.reshape(-1, 1))
-df['rest_time'] = scaler.fit_transform(df['rest_time'].values.reshape(-1, 1))
-df['session_total_time'] = scaler.fit_transform(df['session_total_time'].values.reshape(-1, 1))
-
+# 소요시간 범주화, label encoding
 print('소요시간 범주화, label encoding')
 # nan: 6 으로 인코딩함
 conditions = [
@@ -115,6 +109,17 @@ conditions = [
 
 choices = [0, 1, 2, 3, 4, 5]
 df['time_diff_cate'] = np.select(conditions, choices, default=6)
+
+# 연속형 변수 scale
+print('연속형 변수 scale')
+scaler = MinMaxScaler()
+df['time_diff_ver2'] =scaler.fit_transform(df['time_diff_ver2'].values.reshape(-1, 1))
+df['rest_time'] = scaler.fit_transform(df['rest_time'].values.reshape(-1, 1))
+df['session_total_time'] = scaler.fit_transform(df['session_total_time'].values.reshape(-1, 1))
+df['user_correct_answer'] = scaler.fit_transform(df['user_correct_answer'].values.reshape(-1, 1))
+df['user_total_answer'] = scaler.fit_transform(df['user_total_answer'].values.reshape(-1, 1))
+df['user_acc'] = scaler.fit_transform(df['user_acc'].values.reshape(-1, 1))
+df['prob_order'] = scaler.fit_transform(df['prob_order'].values.reshape(-1, 1))
 
 print('FE 완료:',datetime.now())
 print('df nan 개수')
