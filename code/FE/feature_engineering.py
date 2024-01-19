@@ -2,11 +2,10 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import datetime
-from sklearn.preprocessing import MinMaxScaler
 
 dtype = {"userID": "int16", "answerCode": "int8", "KnowledgeTag": "int16"}
 DATA_PATH = "../../data/"
-DATA_FILE = "train_data.csv"
+DATA_FILE = "test_data.csv"
 DATA = os.path.join(DATA_PATH, DATA_FILE)
 
 df = pd.read_csv(DATA, dtype=dtype, parse_dates=["Timestamp"])
@@ -139,7 +138,8 @@ df["solving_session"] = temp_df.groupby("userID")["solving_session_ver2"].transf
 )
 
 # 유저마다 업데이트 되는 이전 문제 정답 여부
-df["prev_answer"] = df.groupby("userID")["answerCode"].shift(1).fillna(-1)
+df["prev_answer"] = df.groupby("userID")["answerCode"].shift(1)+1
+df["prev_answer"] = df["prev_answer"].fillna(0)
 
 # 유저마다 업데이트 되는 태그 별 문제 풀이 개수 및 총 개수
 print("유저마다 업데이트 되는 태그 별 문제 풀이 개수, 총 개수 및 정답 개수")
@@ -173,39 +173,6 @@ df["tag_correct_rate"] = df.apply(
 df["tag_correct_cum_rate"] = df.apply(
     lambda row: row["total_tag_correct"] / row["total_tag_count"], axis=1
 )
-
-# 연속형 변수 scale
-# print("연속형 변수 scale")
-# scaler = MinMaxScaler()
-# df["time_diff_ver2"] = scaler.fit_transform(df["time_diff_ver2"].values.reshape(-1, 1))
-# df["solving_time_rate"] = scaler.fit_transform(df["rest_time"].values.reshape(-1, 1))
-# df["session_total_time"] = scaler.fit_transform(
-#     df["session_total_time"].values.reshape(-1, 1)
-# )
-# df["user_correct_answer"] = scaler.fit_transform(
-#     df["user_correct_answer"].values.reshape(-1, 1)
-# )
-# df["user_total_answer"] = scaler.fit_transform(
-#     df["user_total_answer"].values.reshape(-1, 1)
-# )
-# df["user_acc"] = scaler.fit_transform(df["user_acc"].values.reshape(-1, 1))
-# df["prob_order"] = scaler.fit_transform(df["prob_order"].values.reshape(-1, 1))
-# df["solving_session"] = scaler.fit_transform(
-#     df["solving_session"].values.reshape(-1, 1)
-# )
-# df["total_tag_sum"] = scaler.fit_transform(df["total_tag_sum"].values.reshape(-1, 1))
-# df["total_tag_count"] = scaler.fit_transform(
-#     df["total_tag_count"].values.reshape(-1, 1)
-# )
-# df["total_tag_correct"] = scaler.fit_transform(
-#     df["total_tag_correct"].values.reshape(-1, 1)
-# )
-# df["tag_correct_rate"] = scaler.fit_transform(
-#     df["tag_correct_rate"].values.reshape(-1, 1)
-# )
-# df["tag_correct_cum_rate"] = scaler.fit_transform(
-#     df["tag_correct_cum_rate"].values.reshape(-1, 1)
-# )
 
 print("FE 완료:", datetime.now())
 print("df nan 개수")
