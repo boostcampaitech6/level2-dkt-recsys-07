@@ -175,37 +175,37 @@ df["tag_correct_cum_rate"] = df.apply(
 )
 
 # 연속형 변수 scale
-print("연속형 변수 scale")
-scaler = MinMaxScaler()
-df["time_diff_ver2"] = scaler.fit_transform(df["time_diff_ver2"].values.reshape(-1, 1))
-df["solving_time_rate"] = scaler.fit_transform(df["rest_time"].values.reshape(-1, 1))
-df["session_total_time"] = scaler.fit_transform(
-    df["session_total_time"].values.reshape(-1, 1)
-)
-df["user_correct_answer"] = scaler.fit_transform(
-    df["user_correct_answer"].values.reshape(-1, 1)
-)
-df["user_total_answer"] = scaler.fit_transform(
-    df["user_total_answer"].values.reshape(-1, 1)
-)
-df["user_acc"] = scaler.fit_transform(df["user_acc"].values.reshape(-1, 1))
-df["prob_order"] = scaler.fit_transform(df["prob_order"].values.reshape(-1, 1))
-df["solving_session"] = scaler.fit_transform(
-    df["solving_session"].values.reshape(-1, 1)
-)
-df["total_tag_sum"] = scaler.fit_transform(df["total_tag_sum"].values.reshape(-1, 1))
-df["total_tag_count"] = scaler.fit_transform(
-    df["total_tag_count"].values.reshape(-1, 1)
-)
-df["total_tag_correct"] = scaler.fit_transform(
-    df["total_tag_correct"].values.reshape(-1, 1)
-)
-df["tag_correct_rate"] = scaler.fit_transform(
-    df["tag_correct_rate"].values.reshape(-1, 1)
-)
-df["tag_correct_cum_rate"] = scaler.fit_transform(
-    df["tag_correct_cum_rate"].values.reshape(-1, 1)
-)
+# print("연속형 변수 scale")
+# scaler = MinMaxScaler()
+# df["time_diff_ver2"] = scaler.fit_transform(df["time_diff_ver2"].values.reshape(-1, 1))
+# df["solving_time_rate"] = scaler.fit_transform(df["rest_time"].values.reshape(-1, 1))
+# df["session_total_time"] = scaler.fit_transform(
+#     df["session_total_time"].values.reshape(-1, 1)
+# )
+# df["user_correct_answer"] = scaler.fit_transform(
+#     df["user_correct_answer"].values.reshape(-1, 1)
+# )
+# df["user_total_answer"] = scaler.fit_transform(
+#     df["user_total_answer"].values.reshape(-1, 1)
+# )
+# df["user_acc"] = scaler.fit_transform(df["user_acc"].values.reshape(-1, 1))
+# df["prob_order"] = scaler.fit_transform(df["prob_order"].values.reshape(-1, 1))
+# df["solving_session"] = scaler.fit_transform(
+#     df["solving_session"].values.reshape(-1, 1)
+# )
+# df["total_tag_sum"] = scaler.fit_transform(df["total_tag_sum"].values.reshape(-1, 1))
+# df["total_tag_count"] = scaler.fit_transform(
+#     df["total_tag_count"].values.reshape(-1, 1)
+# )
+# df["total_tag_correct"] = scaler.fit_transform(
+#     df["total_tag_correct"].values.reshape(-1, 1)
+# )
+# df["tag_correct_rate"] = scaler.fit_transform(
+#     df["tag_correct_rate"].values.reshape(-1, 1)
+# )
+# df["tag_correct_cum_rate"] = scaler.fit_transform(
+#     df["tag_correct_cum_rate"].values.reshape(-1, 1)
+# )
 
 print("FE 완료:", datetime.now())
 print("df nan 개수")
