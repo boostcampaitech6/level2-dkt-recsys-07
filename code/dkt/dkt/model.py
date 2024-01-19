@@ -147,6 +147,9 @@ class LastQueryTransformerLSTM(ModelBase):
     def __init__(self, args):
         super().__init__(args)
         self.hidden_dim = args.model.hidden_dim
+        self.position_embedding = nn.Embedding(
+            1 + args.model.max_seq_len, 2 * args.model.hidden_dim
+        )
         self.mha = nn.MultiheadAttention(
             embed_dim=2 * args.model.hidden_dim,
             num_heads=args.model.n_heads,
@@ -162,6 +165,8 @@ class LastQueryTransformerLSTM(ModelBase):
 
     def forward(self, **input):
         X, batch_size = super().forward(**input)
+        P = self.position_embedding(input["Position"])
+        X = X + P
         Y, _ = self.mha(X[:, -1, :].view(batch_size, -1, 2 * self.hidden_dim), X, X)
         X = X + Y.view(batch_size, 1, 2 * self.hidden_dim)
         out, _ = self.lstm(X)

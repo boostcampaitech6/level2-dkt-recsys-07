@@ -141,13 +141,16 @@ class DKTDataset(torch.utils.data.Dataset):
             else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
             for i, col in enumerate(self.args.columns[1:])
         }
-
         # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
         seq_len = len(row[0])
         if seq_len > self.max_seq_len:
             for k, seq in data.items():
                 data[k] = seq[-self.max_seq_len :]
             mask = torch.ones(self.max_seq_len, dtype=torch.int16)
+            position = torch.tensor(
+                [-self.max_seq_len + i for i in range(1, self.max_seq_len + 1)],
+                dtype=torch.int,
+            )
         else:
             for k, seq in data.items():
                 # Pre-padding non-valid sequences
@@ -156,6 +159,11 @@ class DKTDataset(torch.utils.data.Dataset):
                 data[k] = tmp
             mask = torch.zeros(self.max_seq_len, dtype=torch.int16)
             mask[-seq_len:] = 1
+        position = torch.tensor(
+            [i for i in range(1, self.max_seq_len + 1)], dtype=torch.int16
+        )
+        position = position * mask
+        data["Position"] = position
         data["mask"] = mask
         interaction = data["answerCode"]
         interaction = interaction.roll(shifts=1)
