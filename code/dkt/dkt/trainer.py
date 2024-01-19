@@ -65,9 +65,9 @@ def run(args, train_data: np.ndarray, valid_data: np.ndarray, model: nn.Module):
             # nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
             if args.cv > 0:
-                model_filename = f"{args.model}_CV_{args.cv}_{args.model_name}"
+                model_filename = f"{args.model.name}_CV_{args.cv}_{args.model_name}"
             else:
-                model_filename = f"{args.model}_{args.model_name}"
+                model_filename = f"{args.model.name}_{args.model_name}"
             save_checkpoint(
                 state={"epoch": epoch + 1, "state_dict": model_to_save.state_dict()},
                 model_dir=args.model_dir,
@@ -173,9 +173,9 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
         total_preds += list(preds)
 
     if args.cv > 0:
-        output_file_name = f"{args.model}_CV_{args.cv}_submission.csv"
+        output_file_name = f"{args.model.name}_CV_{args.cv}_submission.csv"
     else:
-        output_file_name = f"{args.model}_submission.csv"
+        output_file_name = f"{args.model.name}_submission.csv"
     write_path = os.path.join(args.output_dir, output_file_name)
     os.makedirs(name=args.output_dir, exist_ok=True)
     with open(write_path, "w", encoding="utf8") as w:
@@ -187,7 +187,7 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
 def get_model(args) -> nn.Module:
     try:
-        model_name = args.model.lower()
+        model_name = args.model.name.lower()
         model = {
             "lstm": LSTM,
             "lstmattn": LSTMATTN,
@@ -244,9 +244,9 @@ def save_checkpoint(state: dict, model_dir: str, model_filename: str) -> None:
 
 def load_model(args):
     if args.cv > 0:
-        model_name = f"{args.model}_CV_{args.cv}_{args.model_name}"
+        model_name = f"{args.model.name}_CV_{args.cv}_{args.model_name}"
     else:
-        model_name = f"{args.model}_{args.model_name}"
+        model_name = f"{args.model.name}_{args.model_name}"
     model_path = os.path.join(args.model_dir, model_name)
     logger.info("Loading Model from: %s", model_path)
     load_state = torch.load(model_path)

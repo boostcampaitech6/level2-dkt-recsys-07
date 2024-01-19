@@ -27,13 +27,10 @@ log_steps: 50  # Logging frequency in steps
 # Model Configuration
 cate_cols: ["testId", "assessmentItemID", "KnowledgeTag"]
 cont_cols: ["Timestamp"]
-max_seq_len: 100  # Maximum sequence length
-hidden_dim: 32  # Hidden dimension size
-n_layers: 2  # Number of layers in the emodel
-n_heads: 2  # Number of heads in the model
-drop_out: 0.2  # Dropout rate
+defaults:
+  - _self_
+  - model : lstm #choose in [lstm, lstmattn, bert]
 
 # Model, Optimizer, and Scheduler Types
-model: lstm  # Type of model to use
-optimizer: adam  # Type of optimizer
+optimizer: adamW  # Type of optimizer
 scheduler: plateau  # Type of learning rate scheduler

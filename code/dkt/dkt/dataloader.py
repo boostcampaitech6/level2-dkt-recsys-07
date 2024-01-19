@@ -129,7 +129,7 @@ class DKTDataset(torch.utils.data.Dataset):
     def __init__(self, data: np.ndarray, args):
         self.data = data
         self.args = args
-        self.max_seq_len = args.max_seq_len
+        self.max_seq_len = args.model.max_seq_len
 
     def __getitem__(self, index: int) -> dict:
         row = self.data[index]

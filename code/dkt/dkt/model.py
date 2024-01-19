@@ -7,12 +7,11 @@ class ModelBase(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.hidden_dim = args.hidden_dim
-        self.n_layers = args.n_layers
-
+        self.cate_cols = args.cate_cols
+        self.cont_cols = args.cont_cols
         # Embeddings
         # hd: Hidden dimension, intd: Intermediate hidden dimension
-        hd, intd = self.hidden_dim, self.hidden_dim // 3
+        hd, intd = args.model.hidden_dim, args.model.hidden_dim // 3
         self.embedding_dict = nn.ModuleDict(
             {
                 col: nn.Embedding(args.n_cate[col] + 1, intd)
@@ -30,13 +29,13 @@ class ModelBase(nn.Module):
         self.continuous_layer_normalization = nn.LayerNorm(hd)
 
         # Fully connected layer
-        self.fc = nn.Linear(2 * args.hidden_dim, 1)
+        self.fc = nn.Linear(2 * args.model.hidden_dim, 1)
 
     def forward(self, **input):
         batch_size = input["Interaction"].size(0)
         # Categorical cols
         embeddings = []
-        for col in self.args.cate_cols:
+        for col in self.cate_cols:
             embeddings.append(self.embedding_dict[col](input[col].int()))
         embeddings.append(
             self.embedding_dict["Interaction"](input["Interaction"].int())
@@ -45,11 +44,11 @@ class ModelBase(nn.Module):
         X = self.comb_proj(embed)
         X = self.category_layer_normalization(X)
         # Continuos cols
-        if self.args.cont_cols:
+        if self.cont_cols:
             conts = []
-            for col in self.args.cont_cols:
+            for col in self.cont_cols:
                 conts.append(input[col].float())
-            if len(self.args.cont_cols) > 1:
+            if len(self.cont_cols) > 1:
                 conts = torch.cat(conts, dim=2)
             else:
                 conts = conts[-1]
@@ -63,8 +62,12 @@ class ModelBase(nn.Module):
 class LSTM(ModelBase):
     def __init__(self, args):
         super().__init__(args)
+        self.hidden_dim = args.model.hidden_dim
         self.lstm = nn.LSTM(
-            2 * args.hidden_dim, 2 * args.hidden_dim, args.n_layers, batch_first=True
+            2 * args.model.hidden_dim,
+            2 * args.model.hidden_dim,
+            args.model.n_layers,
+            batch_first=True,
         )
 
     def forward(self, **input):
@@ -78,19 +81,23 @@ class LSTM(ModelBase):
 class LSTMATTN(ModelBase):
     def __init__(self, args):
         super().__init__(args)
-        self.n_heads = args.n_heads
-        self.drop_out = args.drop_out
+        self.hidden_dim = args.model.hidden_dim
+        self.n_layers = args.model.n_layers
+
         self.lstm = nn.LSTM(
-            2 * args.hidden_dim, 2 * args.hidden_dim, args.n_layers, batch_first=True
+            2 * args.model.hidden_dim,
+            2 * args.model.hidden_dim,
+            args.model.n_layers,
+            batch_first=True,
         )
         self.config = BertConfig(
             3,  # not used
-            hidden_size=2 * args.hidden_dim,
+            hidden_size=2 * args.model.hidden_dim,
             num_hidden_layers=1,
-            num_attention_heads=self.n_heads,
-            intermediate_size=2 * args.hidden_dim,
-            hidden_dropout_prob=args.drop_out,
-            attention_probs_dropout_prob=args.drop_out,
+            num_attention_heads=args.model.n_heads,
+            intermediate_size=2 * args.model.hidden_dim,
+            hidden_dropout_prob=args.model.drop_out,
+            attention_probs_dropout_prob=args.model.drop_out,
         )
         self.attn = BertEncoder(self.config)
 
@@ -115,15 +122,14 @@ class LSTMATTN(ModelBase):
 class BERT(ModelBase):
     def __init__(self, args):
         super().__init__(args)
-        self.n_heads = args.n_heads
-        self.drop_out = args.drop_out
+        self.hidden_dim = args.model.hidden_dim
         # Bert config
         self.config = BertConfig(
             3,  # not used
-            hidden_size=2 * args.hidden_dim,
-            num_hidden_layers=args.n_layers,
-            num_attention_heads=args.n_heads,
-            max_position_embeddings=args.max_seq_len,
+            hidden_size=2 * args.model.hidden_dim,
+            num_hidden_layers=args.model.n_layers,
+            num_attention_heads=args.model.n_heads,
+            max_position_embeddings=args.model.max_seq_len,
         )
         self.encoder = BertModel(self.config)
 
