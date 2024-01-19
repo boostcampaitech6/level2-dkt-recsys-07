@@ -21,7 +21,9 @@ def main(args: DictConfig):
     os.makedirs(args.model_dir, exist_ok=True)
     wandb.login()
     set_seeds(args.seed)
-    args.device = "cuda" if torch.cuda.is_available() else "cpu"
+    args.device = (
+        "cuda" if torch.cuda.is_available() and args.device != "cpu" else "cpu"
+    )
 
     logger.info("Preparing data ...")
     preprocess = Preprocess(args)
