@@ -141,3 +141,30 @@ class BERT(ModelBase):
         out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
         return out
+
+
+class LastQueryTransformerLSTM(ModelBase):
+    def __init__(self, args):
+        super().__init__(args)
+        self.hidden_dim = args.model.hidden_dim
+        self.mha = nn.MultiheadAttention(
+            embed_dim=2 * args.model.hidden_dim,
+            num_heads=args.model.n_heads,
+            dropout=args.model.drop_out,
+            batch_first=True,
+        )
+        self.lstm = nn.LSTM(
+            2 * args.model.hidden_dim,
+            2 * args.model.hidden_dim,
+            args.model.n_layers,
+            batch_first=True,
+        )
+
+    def forward(self, **input):
+        X, batch_size = super().forward(**input)
+        Y, _ = self.mha(X[:, -1, :].view(batch_size, -1, 2 * self.hidden_dim), X, X)
+        X = X + Y.view(batch_size, 1, 2 * self.hidden_dim)
+        out, _ = self.lstm(X)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
+        out = self.fc(out).view(batch_size, -1)
+        return out

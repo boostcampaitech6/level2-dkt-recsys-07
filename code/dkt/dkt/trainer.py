@@ -9,7 +9,7 @@ import wandb
 from .criterion import get_criterion
 from .dataloader import get_loaders
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, BERT
+from .model import LSTM, LSTMATTN, BERT, LastQueryTransformerLSTM
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 from .utils import get_logger, logging_conf
@@ -192,9 +192,8 @@ def get_model(args) -> nn.Module:
             "lstm": LSTM,
             "lstmattn": LSTMATTN,
             "bert": BERT,
-        }.get(
-            model_name
-        )(args)
+            "lqtl": LastQueryTransformerLSTM,
+        }.get(model_name)(args)
     except KeyError:
         logger.warn("No model name %s found", model_name)
     except Exception as e:
