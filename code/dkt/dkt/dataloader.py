@@ -53,6 +53,32 @@ class Preprocess:
             data_2 = data[size:]
         return data_1, data_2
 
+    def split_data_sequantially(
+        self, data: np.ndarray, ratio: float = 0.7, seed: int = 0
+    ) -> Tuple[np.ndarray]:
+        """
+        split data into two parts with a given ratio.
+        """
+        last_sequence_length = 0
+        train_user_data = []
+        valid_user_data = []
+        user_rows = []
+        for i, rows in enumerate(data):
+            if len(rows[0]) < last_sequence_length:
+                size = int(len(user_rows) * ratio)
+                train_user_data.extend(user_rows[:size])
+                valid_user_data.extend(user_rows[size:])
+                user_rows = []
+            user_rows.append(rows)
+            last_sequence_length = len(rows[0])
+        train_data = np.empty(len(train_user_data), dtype=object)
+        valid_data = np.empty(len(valid_user_data), dtype=object)
+        for i, rows in enumerate(train_user_data):
+            train_data[i] = rows
+        for i, rows in enumerate(valid_user_data):
+            valid_data[i] = rows
+        return train_data, valid_data
+
     def __save_labels(self, encoder: LabelEncoder, name: str) -> None:
         le_path = os.path.join(self.args.asset_dir, name + "_classes.npy")
         np.save(le_path, encoder.classes_)
@@ -61,6 +87,8 @@ class Preprocess:
         if not os.path.exists(self.args.asset_dir):
             os.makedirs(self.args.asset_dir)
 
+        df["Raw_userID"] = df["userID"]
+        
         # 연속형 변수 minmaxscaler
         scaler = MinMaxScaler()
         for col in self.args.cont_cols:
@@ -114,13 +142,13 @@ class Preprocess:
             for col in self.args.cate_cols
         }
 
-        df = df.sort_values(by=["userID", "Timestamp"], axis=0)
+        df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
         self.args.columns = (
-            ["userID", "answerCode"] + self.args.cate_cols + self.args.cont_cols
+            ["Raw_userID", "answerCode"] + self.args.cate_cols + self.args.cont_cols
         )
         group = (
             df[self.args.columns]
-            .groupby("userID")
+            .groupby("Raw_userID")
             .apply(lambda r: (tuple(r[col].values for col in self.args.columns[1:])))
         )
         return group.values
@@ -144,9 +172,11 @@ class DKTDataset(torch.utils.data.Dataset):
         # Load from data
         data = {
             col: torch.tensor(row[i] + 1, dtype=torch.int)
-            if i <= len(self.args.cate_cols)
+            if i < len(["answerCode"] + self.args.cate_cols)
             else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
-            for i, col in enumerate(self.args.columns[1:])
+            for i, col in enumerate(
+                ["answerCode"] + self.args.cate_cols + self.args.cont_cols
+            )
         }
 
         # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
@@ -207,14 +237,16 @@ def get_loaders(
 
 def sliding_window(args, data: np.ndarray) -> np.ndarray:
     if args.stride > 0:
+        old_len = len(data)
         stack = []
         for user in data:
             stack.append(user)
             last = args.stride
-            while last < len(user):
+            while last < len(user[0]):
                 stack.append(tuple([r[:-last] for r in user]))
                 last += args.stride
         data = np.empty(len(stack), dtype=object)
-        for i, row in enumerate(stack):
-            data[-(i + 1)] = row
+        for i, rows in enumerate(stack):
+            data[-(i + 1)] = rows
+        print(f"Augmentated from {old_len} to {len(stack)}")
     return data
