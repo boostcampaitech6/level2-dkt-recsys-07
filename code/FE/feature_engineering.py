@@ -105,10 +105,11 @@ print("문제 풀이 시작 시간")
 
 def calculate_time(dt):
     total_seconds = dt.hour * 3600 + dt.minute * 60 + dt.second
-    return round(np.sin(np.pi * total_seconds / (24 * 3600)), 3)
+    return np.sin(np.pi * total_seconds / (24 * 3600))
 
 
 df["solving_start_time"] = df["Timestamp"].apply(calculate_time)
+df["solving_start_time_r3"] = df["solving_start_time"].round(3)
 
 # 문제 풀이 요일과 주말 여부
 print("문제 풀이 요일과 주말 여부")
