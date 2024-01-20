@@ -142,8 +142,8 @@ conditions = [
     temp_df["time_diff_ver1"] > pd.Timedelta("5 minutes"),
 ]
 
-choices = [0, 1, 2, 3, 4, 5]
-df["time_diff_cate"] = np.select(conditions, choices, default=6)
+choices = [1, 2, 3, 4, 5, 6]
+df["time_diff_cate"] = np.select(conditions, choices, default=7)
 
 # 유저마다 업데이트 되는 세션 추가
 df["solving_session"] = temp_df.groupby("userID")["solving_session_ver2"].transform(
