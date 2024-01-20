@@ -100,17 +100,20 @@ df["time_diff_ver2"] = (
 df["time_diff_ver2"].fillna(pd.Timedelta(minutes=15), inplace=True)
 
 # 문제 풀이 시작 시간
-print('문제 풀이 시작 시간')
+print("문제 풀이 시작 시간")
+
+
 def calculate_time(dt):
     total_seconds = dt.hour * 3600 + dt.minute * 60 + dt.second
-    return round(np.sin(np.pi * total_seconds / (24 * 3600)),3)
+    return round(np.sin(np.pi * total_seconds / (24 * 3600)), 3)
 
-df['solving_start_time'] = df['Timestamp'].apply(calculate_time)
+
+df["solving_start_time"] = df["Timestamp"].apply(calculate_time)
 
 # 문제 풀이 요일과 주말 여부
-print('문제 풀이 요일과 주말 여부')
-df['solving_day'] = df['Timestamp'].dt.weekday+1
-df['solving_is_weekend']= df['solving_day'].apply(lambda x: 2 if x >= 6 else 1)
+print("문제 풀이 요일과 주말 여부")
+df["solving_day"] = df["Timestamp"].dt.weekday + 1
+df["solving_is_weekend"] = df["solving_day"].apply(lambda x: 2 if x >= 6 else 1)
 
 # 시험지(세션)별 총 시간 추가
 print("시험지(세션)별 총 시간 추가")
@@ -151,7 +154,7 @@ df["solving_session"] = temp_df.groupby("userID")["solving_session_ver2"].transf
 )
 
 # 유저마다 업데이트 되는 이전 문제 정답 여부
-df["prev_answer"] = df.groupby("userID")["answerCode"].shift(1)+1
+df["prev_answer"] = df.groupby("userID")["answerCode"].shift(1) + 1
 df["prev_answer"] = df["prev_answer"].fillna(0)
 
 # 유저마다 업데이트 되는 태그 별 문제 풀이 개수 및 총 개수
