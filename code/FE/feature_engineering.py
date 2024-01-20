@@ -99,6 +99,19 @@ df["time_diff_ver2"] = (
 )
 df["time_diff_ver2"].fillna(pd.Timedelta(minutes=15), inplace=True)
 
+# 문제 풀이 시작 시간
+print('문제 풀이 시작 시간')
+def calculate_time(dt):
+    total_seconds = dt.hour * 3600 + dt.minute * 60 + dt.second
+    return round(np.sin(np.pi * total_seconds / (24 * 3600)),3)
+
+df['solving_start_time'] = df['Timestamp'].apply(calculate_time)
+
+# 문제 풀이 요일과 주말 여부
+print('문제 풀이 요일과 주말 여부')
+df['solving_day'] = df['Timestamp'].dt.weekday+1
+df['solving_is_weekend']= df['solving_day'].apply(lambda x: 2 if x >= 6 else 1)
+
 # 시험지(세션)별 총 시간 추가
 print("시험지(세션)별 총 시간 추가")
 temp_df["time_diff_session_ver2"] = df["time_diff_ver2"]
