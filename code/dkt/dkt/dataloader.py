@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.preprocessing import LabelEncoder
-
+from sklearn.preprocessing import MinMaxScaler
 from .valid import make_valid
 
 
@@ -88,6 +88,13 @@ class Preprocess:
             os.makedirs(self.args.asset_dir)
 
         df["Raw_userID"] = df["userID"]
+        
+        # 연속형 변수 minmaxscaler
+        scaler = MinMaxScaler()
+        for col in self.args.cont_cols:
+            if col == 'Timestamp':
+                continue
+            df[col] = scaler.fit_transform(df[col].values.reshape(-1, 1))
 
         for col in self.args.cate_cols:
             le = LabelEncoder()
