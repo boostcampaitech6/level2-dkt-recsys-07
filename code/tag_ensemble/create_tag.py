@@ -13,7 +13,7 @@ def main(args: DictConfig):
 
     train_tag = train_df["assessmentItemID"].apply(lambda x: x[2])
     test_tag = test_df["assessmentItemID"].apply(lambda x: x[2])
-
+    # 대분류 Tag 범위: 1 - 9
     for i in [str(i) for i in range(1, 10)]:
         tag_train_df = train_df[train_tag == i]
         tag_test_df = test_df[test_tag == i]
