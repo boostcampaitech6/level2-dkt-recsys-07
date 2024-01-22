@@ -236,7 +236,22 @@ def get_loaders(
 
 
 def sliding_window(args, data: np.ndarray) -> np.ndarray:
-    if args.stride > 0:
+    if args.random_aug:
+        stack = []
+        for user in data:
+            l = len(user[0])
+            if l < args.max_seq_len:
+                stack.append(user)
+                continue
+
+            for _ in range(l//args.max_seq_len):
+                ind = np.random.choice(l, args.max_seq_len, replace=False)
+                ind.sort()
+                stack.append(tuple([r[ind] for r in user]))
+        data = np.empty(len(stack), dtype=object)
+        for i, row in enumerate(stack):
+            data[-(i + 1)] = row
+    elif args.stride > 0:
         old_len = len(data)
         stack = []
         for user in data:
