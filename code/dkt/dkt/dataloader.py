@@ -257,7 +257,7 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
         for user in data:
             stack.append(user)
             last = args.stride
-            while last < len(user[0]):
+            while len(user[0]) - last > 14:
                 stack.append(tuple([r[:-last] for r in user]))
                 last += args.stride
         data = np.empty(len(stack), dtype=object)
