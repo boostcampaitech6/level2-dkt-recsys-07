@@ -1,4 +1,5 @@
 # Basic Configuration
+seed_fix: False
 seed: 42  # Seed for reproducibility
 device: gpu  # Device to use: cpu or gpu
 
@@ -33,7 +34,7 @@ cate_cols: ["testId", "assessmentItemID", "KnowledgeTag"]
 cont_cols: ["Timestamp"]
 defaults:
   - _self_
-  - model : lqtl #choose in [lstm, lstmattn, bert]
+  - model : lqtl #choose in [lstm, lstmattn, bert, lqtl, tl]
 
 # Model, Optimizer, and Scheduler Types
 optimizer: adamW  # Type of optimizer

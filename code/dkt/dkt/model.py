@@ -143,7 +143,7 @@ class BERT(ModelBase):
         return out
 
 
-class LastQueryTransformerLSTM(ModelBase):
+class LastQueryTransformerEncoderLSTM(ModelBase):
     def __init__(self, args):
         super().__init__(args)
         self.hidden_dim = args.model.hidden_dim
@@ -177,6 +177,52 @@ class LastQueryTransformerLSTM(ModelBase):
         # multihead attention and add&norma
         Y, _ = self.mha(X[:, -1, :].view(batch_size, -1, 2 * self.hidden_dim), X, X)
         X = X + Y.view(batch_size, 1, 2 * self.hidden_dim)
+        X = self.layer_normalization(X)
+        # feed forward and add&norm
+        Y = self.feedforward(X)
+        X = X + Y
+        X = self.layer_normalization(X)
+        # lstm
+        out, _ = self.lstm(X)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
+        out = self.fc(out).view(batch_size, -1)
+        return out
+
+
+class TransformerEncoderLSTM(ModelBase):
+    def __init__(self, args):
+        super().__init__(args)
+        self.hidden_dim = args.model.hidden_dim
+        self.position_embedding = nn.Embedding(
+            1 + args.model.max_seq_len, 2 * args.model.hidden_dim, padding_idx=0
+        )
+        self.mha = nn.MultiheadAttention(
+            embed_dim=2 * args.model.hidden_dim,
+            num_heads=args.model.n_heads,
+            dropout=args.model.drop_out,
+            batch_first=True,
+        )
+        self.feedforward = nn.Sequential(
+            nn.ReLU(),
+            nn.Dropout(args.model.drop_out),
+            nn.Linear(2 * args.model.hidden_dim, 2 * args.model.hidden_dim),
+        )
+        self.lstm = nn.LSTM(
+            2 * args.model.hidden_dim,
+            2 * args.model.hidden_dim,
+            args.model.n_layers,
+            batch_first=True,
+        )
+        self.layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
+    def forward(self, **input):
+        # sum position embedding
+        X, batch_size = super().forward(**input)
+        P = self.position_embedding(input["Position"])
+        X = X + P
+        # multihead attention and add&norma
+        Y, _ = self.mha(X, X, X)
+        X = X + Y
         X = self.layer_normalization(X)
         # feed forward and add&norm
         Y = self.feedforward(X)
