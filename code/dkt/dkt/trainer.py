@@ -15,6 +15,7 @@ from .model import (
     BERT,
     LastQueryTransformerEncoderLSTM,
     TransformerEncoderLSTM,
+    VanillaLQTL,
 )
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
@@ -201,6 +202,7 @@ def get_model(args) -> nn.Module:
             "bert": BERT,
             "lqtl": LastQueryTransformerEncoderLSTM,
             "tl": TransformerEncoderLSTM,
+            "vlqtl": VanillaLQTL,
         }.get(model_name)(args)
     except KeyError:
         logger.warn("No model name %s found", model_name)

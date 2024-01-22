@@ -156,18 +156,21 @@ class LastQueryTransformerEncoderLSTM(ModelBase):
             dropout=args.model.drop_out,
             batch_first=True,
         )
+        self.mha_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
         self.feedforward = nn.Sequential(
             nn.ReLU(),
             nn.Dropout(args.model.drop_out),
             nn.Linear(2 * args.model.hidden_dim, 2 * args.model.hidden_dim),
         )
+        self.ff_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
         self.lstm = nn.LSTM(
             2 * args.model.hidden_dim,
             2 * args.model.hidden_dim,
             args.model.n_layers,
             batch_first=True,
         )
-        self.layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
 
     def forward(self, **input):
         # sum position embedding
@@ -177,11 +180,11 @@ class LastQueryTransformerEncoderLSTM(ModelBase):
         # multihead attention and add&norma
         Y, _ = self.mha(X[:, -1, :].view(batch_size, -1, 2 * self.hidden_dim), X, X)
         X = X + Y.view(batch_size, 1, 2 * self.hidden_dim)
-        X = self.layer_normalization(X)
+        X = self.mha_layer_normalization(X)
         # feed forward and add&norm
         Y = self.feedforward(X)
         X = X + Y
-        X = self.layer_normalization(X)
+        X = self.ff_layer_normalization(X)
         # lstm
         out, _ = self.lstm(X)
         out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
@@ -202,11 +205,14 @@ class TransformerEncoderLSTM(ModelBase):
             dropout=args.model.drop_out,
             batch_first=True,
         )
+        self.mha_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
         self.feedforward = nn.Sequential(
             nn.ReLU(),
             nn.Dropout(args.model.drop_out),
             nn.Linear(2 * args.model.hidden_dim, 2 * args.model.hidden_dim),
         )
+        self.ff_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
         self.lstm = nn.LSTM(
             2 * args.model.hidden_dim,
             2 * args.model.hidden_dim,
@@ -223,11 +229,86 @@ class TransformerEncoderLSTM(ModelBase):
         # multihead attention and add&norma
         Y, _ = self.mha(X, X, X)
         X = X + Y
-        X = self.layer_normalization(X)
+        X = self.mha_layer_normalization(X)
         # feed forward and add&norm
         Y = self.feedforward(X)
         X = X + Y
-        X = self.layer_normalization(X)
+        X = self.ff_layer_normalization(X)
+        # lstm
+        out, _ = self.lstm(X)
+        out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
+        out = self.fc(out).view(batch_size, -1)
+        return out
+
+
+class VanillaLQTL(nn.Module):
+    def __init__(self, args):
+        self.hidden_dim = args.model.hidden_dim
+        self.cate_cols = args.cate_cols
+        self.cont_cols = args.cont_cols
+        self.embedding_dict = nn.ModuleDict(
+            {
+                col: nn.Embedding(args.n_cate[col] + 1, 2 * args.model.hidden_dim)
+                for col in self.args.cate_cols
+            }
+        )
+        self.embedding_dict["Interaction"] = nn.Embedding(3, args.model.hidden_dim)
+        self.position_embedding = nn.Embedding(
+            1 + args.model.max_seq_len, 2 * args.model.hidden_dim, padding_idx=0
+        )
+
+        self.cont_features_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
+        self.mha = nn.MultiheadAttention(
+            embed_dim=2 * args.model.hidden_dim,
+            num_heads=args.model.n_heads,
+            dropout=args.model.drop_out,
+            batch_first=True,
+        )
+        self.mha_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
+        self.feedforward = nn.Sequential(
+            nn.ReLU(),
+            nn.Dropout(args.model.drop_out),
+            nn.Linear(2 * args.model.hidden_dim, 2 * args.model.hidden_dim),
+        )
+        self.ff_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+
+        self.lstm = nn.LSTM(
+            2 * args.model.hidden_dim,
+            2 * args.model.hidden_dim,
+            args.model.n_layers,
+            batch_first=True,
+        )
+
+    def forward(self, **input):
+        batch_size = input["Interaction"].size()[0]
+        # sum position embedding
+        P = self.position_embedding(input["Position"])
+        # sum categorical embedding
+        for col in self.cate_cols:
+            P = P + self.embedding_dict[col](input[col])
+        # sum continuos featues
+        if self.cont_cols:
+            conts = []
+            for col in self.cont_cols:
+                conts.append(input[col].float())
+            if len(self.cont_cols) > 1:
+                conts = torch.cat(conts, dim=2)
+            else:
+                conts = conts[-1]
+            Y = self.cont_proj(conts)
+            Y = self.continuous_layer_normalization(Y)
+
+            P = P + Y
+        # multihead attention and add&norma
+        Y, _ = self.mha(X[:, -1, :].view(batch_size, -1, 2 * self.hidden_dim), X, X)
+        X = X + Y.view(batch_size, 1, 2 * self.hidden_dim)
+        X = self.mha_layer_normalization(X)
+        # feed forward and add&norm
+        Y = self.feedforward(X)
+        X = X + Y
+        X = self.ff_layer_normalization(X)
         # lstm
         out, _ = self.lstm(X)
         out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
