@@ -20,6 +20,8 @@ def main(args: DictConfig):
     OmegaConf.set_struct(args, False)
     os.makedirs(args.model_dir, exist_ok=True)
     wandb.login()
+    if not args.seed_fix:
+        args.seed = np.random.randint(0, 1_000_000_000)
     set_seeds(args.seed)
     args.device = (
         "cuda" if torch.cuda.is_available() and args.device != "cpu" else "cpu"
