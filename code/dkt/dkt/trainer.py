@@ -9,7 +9,7 @@ import wandb
 from .criterion import get_criterion
 from .dataloader import get_loaders
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, BERT
+from .model import LSTM, LSTMATTN, BERT, MF
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 from .utils import get_logger, logging_conf
@@ -102,9 +102,15 @@ def train(
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
-        targets = batch["answerCode"] - 1
+        if args.model.lower() == 'mf':
+            batch = batch[0].to(args.device)
+            # loss 계산을 위해 shape 변경
+            preds = model(batch[:,:2]).unsqueeze(1)
+            targets = batch[:,-1].unsqueeze(1)
+        else:
+            batch = {k: v.to(args.device) for k, v in batch.items()}
+            preds = model(**batch)
+            targets = batch["answerCode"] - 1
 
         loss = compute_loss(preds=preds, targets=targets)
         update_params(
@@ -138,9 +144,14 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_preds = []
     total_targets = []
     for step, batch in enumerate(valid_loader):
-        batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
-        targets = batch["answerCode"] - 1
+        if args.model.lower() == 'mf':
+            batch = batch[0].to(args.device)
+            preds = model(batch[:,:2]).unsqueeze(1)
+            targets = batch[:,-1].unsqueeze(1)
+        else:
+            batch = {k: v.to(args.device) for k, v in batch.items()}
+            preds = model(**batch)
+            targets = batch["answerCode"] - 1
 
         # predictions
         preds = sigmoid(preds[:, -1])
@@ -164,8 +175,12 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
     total_preds = []
     for step, batch in enumerate(test_loader):
-        batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
+        if args.model.lower() == 'mf':
+            batch = batch[0].to(args.device)
+            preds = model(batch[:,:2]).unsqueeze(1)
+        else:
+            batch = {k: v.to(args.device) for k, v in batch.items()}
+            preds = model(**batch)
 
         # predictions
         preds = sigmoid(preds[:, -1])
@@ -192,6 +207,7 @@ def get_model(args) -> nn.Module:
             "lstm": LSTM,
             "lstmattn": LSTMATTN,
             "bert": BERT,
+            "mf": MF,
         }.get(
             model_name
         )(args)
