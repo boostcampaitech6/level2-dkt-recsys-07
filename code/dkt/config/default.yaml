@@ -10,28 +10,28 @@ model_dir: "models/"  # Directory for storing models
 output_dir: "outputs/"  # Directory for output files
 
 # File Names
-file_name: "train_data.csv"  # Name of the train file
-test_file_name: "test_data.csv"  # Name of the test file
+file_name: "FE_train_data.csv"  # Name of the train file
+test_file_name: "FE_test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
 # Data Process Parameters
-split_ratio: 0.7
+split_ratio: 0.8
 cv: 0
-stride: 100
+stride: 128
 sequence_split: False
 
 # Training Parameters
 num_workers: 2  # Number of workers
 n_epochs: 50  # Number of training epochs
-batch_size: 512  # Batch size
-lr: 0.0001  # Learning rate
+batch_size: 128  # Batch size
+lr: 0.00005  # Learning rate
 clip_grad: 10  # Gradient clipping
-patience: 5  # Patience for early stopping
+patience: 2  # Patience for early stopping
 log_steps: 50  # Logging frequency in steps
 
 # Model Configuration
-cate_cols: ["testId", "assessmentItemID", "KnowledgeTag"]
-cont_cols: ["Timestamp"]
+cate_cols: ["testId", "assessmentItemID", "KnowledgeTag", "BigTag", "solving_is_weekend"]
+cont_cols: ["Timestamp", "total_tag_correct"]
 defaults:
   - _self_
   - model : lqtl #choose in [lstm, lstmattn, bert, lqtl, tl]
