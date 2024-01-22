@@ -244,7 +244,7 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
                 stack.append(user)
                 continue
 
-            for _ in range(l//args.max_seq_len):
+            for _ in range((l//args.max_seq_len)**2):
                 ind = np.random.choice(l, args.max_seq_len, replace=False)
                 ind.sort()
                 stack.append(tuple([r[ind] for r in user]))
