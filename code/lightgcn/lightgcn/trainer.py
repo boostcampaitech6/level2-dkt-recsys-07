@@ -40,7 +40,7 @@ def run(
 ):
     model.train()
 
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=learning_rate)
 
     os.makedirs(name=model_dir, exist_ok=True)
 
