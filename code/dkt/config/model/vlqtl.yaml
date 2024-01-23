@@ -1,0 +1,6 @@
+name: vlqtl
+hidden_dim: 512
+n_layers: 1
+max_seq_len: 128
+n_heads: 64
+drop_out: 0.2

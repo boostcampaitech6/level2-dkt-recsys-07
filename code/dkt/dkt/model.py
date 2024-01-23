@@ -243,13 +243,15 @@ class TransformerEncoderLSTM(ModelBase):
 
 class VanillaLQTL(nn.Module):
     def __init__(self, args):
+        super().__init__()
         self.hidden_dim = args.model.hidden_dim
         self.cate_cols = args.cate_cols
         self.cont_cols = args.cont_cols
+        
         self.embedding_dict = nn.ModuleDict(
             {
                 col: nn.Embedding(args.n_cate[col] + 1, 2 * args.model.hidden_dim)
-                for col in self.args.cate_cols
+                for col in args.cate_cols
             }
         )
         self.embedding_dict["Interaction"] = nn.Embedding(3, args.model.hidden_dim)
@@ -257,7 +259,8 @@ class VanillaLQTL(nn.Module):
             1 + args.model.max_seq_len, 2 * args.model.hidden_dim, padding_idx=0
         )
 
-        self.cont_features_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
+        self.cont_proj = nn.Linear(len(args.cont_cols), 2 * args.model.hidden_dim)
+        self.continuous_layer_normalization = nn.LayerNorm(2 * args.model.hidden_dim)
 
         self.mha = nn.MultiheadAttention(
             embed_dim=2 * args.model.hidden_dim,
@@ -281,13 +284,15 @@ class VanillaLQTL(nn.Module):
             batch_first=True,
         )
 
+        self.fc = nn.Linear(2 * args.model.hidden_dim, 1)
+
     def forward(self, **input):
         batch_size = input["Interaction"].size()[0]
         # sum position embedding
-        P = self.position_embedding(input["Position"])
+        X = self.position_embedding(input["Position"])
         # sum categorical embedding
         for col in self.cate_cols:
-            P = P + self.embedding_dict[col](input[col])
+            X = X + self.embedding_dict[col](input[col])
         # sum continuos featues
         if self.cont_cols:
             conts = []
@@ -300,7 +305,7 @@ class VanillaLQTL(nn.Module):
             Y = self.cont_proj(conts)
             Y = self.continuous_layer_normalization(Y)
 
-            P = P + Y
+            X = X + Y
         # multihead attention and add&norma
         Y, _ = self.mha(X[:, -1, :].view(batch_size, -1, 2 * self.hidden_dim), X, X)
         X = X + Y.view(batch_size, 1, 2 * self.hidden_dim)
@@ -312,5 +317,7 @@ class VanillaLQTL(nn.Module):
         # lstm
         out, _ = self.lstm(X)
         out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
+        # fully connected
         out = self.fc(out).view(batch_size, -1)
+
         return out
