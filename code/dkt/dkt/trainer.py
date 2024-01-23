@@ -112,7 +112,12 @@ def train(
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
-        loss = compute_loss(preds=preds, targets=targets)
+        if args.roc_star == True:
+            preds = sigmoid(preds[:, -1])
+            targets = targets[:, -1]
+            loss = roc_star(preds, targets, args)
+        else:
+            loss = compute_loss(preds=preds, targets=targets)
         update_params(
             loss=loss, model=model, optimizer=optimizer, scheduler=scheduler, args=args
         )
@@ -121,8 +126,9 @@ def train(
             logger.info("Training steps: %s Loss: %.4f", step, loss.item())
 
         # predictions
-        preds = sigmoid(preds[:, -1])
-        targets = targets[:, -1]
+        if args.roc_star == False:
+            preds = sigmoid(preds[:, -1])
+            targets = targets[:, -1]
 
         total_preds.append(preds.detach())
         total_targets.append(targets.detach())
@@ -203,17 +209,19 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 def get_model(args) -> nn.Module:
     try:
         model_name = args.model.lower()
-        model = {
+        model_dict = {
             "lstm": LSTM,
             "lstmattn": LSTMATTN,
             "bert": BERT,
             "mf": MF,
             "lmf": LMF,
-        }.get(
+        }
+        model = model_dict.get(
             model_name
         )(args)
     except KeyError:
         logger.warn("No model name %s found", model_name)
+        logger.warn("Model name list: %s", list(model_dict.keys()))
     except Exception as e:
         logger.warn("Error while loading %s with args: %s", model_name, args)
         raise e
@@ -273,3 +281,25 @@ def load_model(args):
     model.load_state_dict(load_state["state_dict"], strict=True)
     logger.info("Successfully loaded model state from: %s", model_path)
     return model
+
+def roc_star(y_pred, y_true, args):
+    y_true = (y_true >= 0.5)
+
+    # if batch is either all true or false return small random stub value.
+    if torch.sum(y_true)==0 or torch.sum(y_true) == y_true.shape[0]: return torch.sum(y_pred)*1e-8
+
+    pos = y_pred[y_true]
+    neg = y_pred[~y_true]
+
+    ln_pos = pos.shape[0]
+    ln_neg = neg.shape[0]
+
+    pos_expand = pos.view(-1,1).expand(-1,ln_neg).reshape(-1)
+    neg_expand = neg.repeat(ln_pos)
+
+    diff = -(pos_expand - neg_expand - args.gamma)
+    diff = diff[diff>0]
+
+    loss = torch.sum(torch.pow(diff,2))
+    loss = loss / (ln_pos + ln_neg)
+    return loss

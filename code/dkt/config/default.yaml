@@ -9,7 +9,7 @@ model_dir: "models/"  # Directory for storing models
 output_dir: "outputs/"  # Directory for output files
 
 # File Names
-file_name: "train_data.csv"  # Name of the train file
+file_name: "full_train_data.csv"  # Name of the train file
 test_file_name: "test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
@@ -22,15 +22,20 @@ sequence_split: False
 
 # Training Parameters
 num_workers: 2  # Number of workers
-n_epochs: 200  # Number of training epochs
-batch_size: 2048  # Batch size
+n_epochs: 300  # Number of training epochs
+batch_size: 128  # Batch size
 lr: 0.0001  # Learning rate
 clip_grad: 10  # Gradient clipping
-patience: 5  # Patience for early stopping
+patience: 30  # Patience for early stopping
 log_steps: 50  # Logging frequency in steps
+weight_decay: 0.01
+
+# Loss Function
+roc_star: False
+gamma: 0.3
 
 # Model Configuration
-cate_cols: ["testId", "assessmentItemID", "KnowledgeTag"]
+cate_cols: ["testId", "assessmentItemID"]
 cont_cols: ["Timestamp"]
 max_seq_len: 100  # Maximum sequence length
 hidden_dim: 32  # Hidden dimension size
@@ -39,6 +44,6 @@ n_heads: 2  # Number of heads in the model
 drop_out: 0.2  # Dropout rate
 
 # Model, Optimizer, and Scheduler Types
-model: lstm  # Type of model to use
+model: lmf  # Type of model to use
 optimizer: adam  # Type of optimizer
 scheduler: plateau  # Type of learning rate scheduler
