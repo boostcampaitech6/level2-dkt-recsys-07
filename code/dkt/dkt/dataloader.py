@@ -11,6 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 from .valid import make_valid
 
+from torch.utils.data import TensorDataset
 
 class Preprocess:
     def __init__(self, args):
@@ -131,16 +132,19 @@ class Preprocess:
 
     def load_data_from_file(self, file_name: str, is_train: bool = True) -> np.ndarray:
         csv_file_path = os.path.join(self.args.data_dir, file_name)
-        df = pd.read_csv(csv_file_path)  # , nrows=100000)
+        df = pd.read_csv(csv_file_path)
         df = self.__feature_engineering(df)
         df = self.__preprocessing(df, is_train)
-
-        # 추후 feature를 embedding할 시에 embedding_layer의 input 크기를 결정할때 사용
-
+        
         self.args.n_cate = {
             col: len(np.load(os.path.join(self.args.asset_dir, col + "_classes.npy")))
             for col in self.args.cate_cols
         }
+        
+        # MF는 group을 만들지 않고 return 
+        if self.args.model.lower() in ['mf', 'lmf']:
+            df = df[['userID', 'assessmentItemID', 'answerCode']]
+            return df.values
 
         df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
         self.args.columns = (
@@ -222,7 +226,10 @@ def get_loaders(
     train_loader, valid_loader = None, None
 
     if train is not None:
-        trainset = DKTDataset(train, args)
+        if args.model.lower() in ['mf', 'lmf']:
+            trainset = TensorDataset(torch.LongTensor(train))
+        else:
+            trainset = DKTDataset(train, args)
         train_loader = torch.utils.data.DataLoader(
             trainset,
             num_workers=args.num_workers,
@@ -231,7 +238,10 @@ def get_loaders(
             pin_memory=pin_memory,
         )
     if valid is not None:
-        valset = DKTDataset(valid, args)
+        if args.model.lower() in ['mf', 'lmf']:
+            valset = TensorDataset(torch.LongTensor(valid))
+        else:
+            valset = DKTDataset(valid, args)
         valid_loader = torch.utils.data.DataLoader(
             valset,
             num_workers=args.num_workers,
@@ -244,13 +254,28 @@ def get_loaders(
 
 
 def sliding_window(args, data: np.ndarray) -> np.ndarray:
-    if args.stride > 0:
+    if args.random_aug:
+        stack = []
+        for user in data:
+            l = len(user[0])
+            if l < args.max_seq_len:
+                stack.append(user)
+                continue
+
+            for _ in range((l//args.max_seq_len)**2):
+                ind = np.random.choice(l, args.max_seq_len, replace=False)
+                ind.sort()
+                stack.append(tuple([r[ind] for r in user]))
+        data = np.empty(len(stack), dtype=object)
+        for i, row in enumerate(stack):
+            data[-(i + 1)] = row
+    elif args.stride > 0:
         old_len = len(data)
         stack = []
         for user in data:
             stack.append(user)
             last = args.stride
-            while last < len(user[0]):
+            while len(user[0]) - last > 14:
                 stack.append(tuple([r[:-last] for r in user]))
                 last += args.stride
         data = np.empty(len(stack), dtype=object)

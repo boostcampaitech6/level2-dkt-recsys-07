@@ -15,9 +15,10 @@ test_file_name: "FE_test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
 # Data Process Parameters
+random_aug: False
 split_ratio: 0.8  # (train / (train+valid)) ratio
 cv: 0  # for cross validation
-stride: 128 # for sliding window
+stride: 0 # for sliding window
 sequence_split: False
 
 # Training Parameters

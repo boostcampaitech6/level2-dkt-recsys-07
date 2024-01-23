@@ -16,6 +16,8 @@ from .model import (
     LastQueryTransformerEncoderLSTM,
     TransformerEncoderLSTM,
     VanillaLQTL,
+    MF,
+    LMF
 )
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
@@ -111,9 +113,15 @@ def train(
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
-        targets = batch["answerCode"] - 1
+        if args.model.lower() in ['mf', 'lmf']:
+            batch = batch[0].to(args.device)
+            # loss 계산을 위해 shape 변경
+            preds = model(batch[:,:2]).unsqueeze(1)
+            targets = batch[:,-1].unsqueeze(1)
+        else:
+            batch = {k: v.to(args.device) for k, v in batch.items()}
+            preds = model(**batch)
+            targets = batch["answerCode"] - 1
 
         loss = compute_loss(preds=preds, targets=targets, args= args)
         update_params(
@@ -148,9 +156,14 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_targets = []
     losses = []
     for step, batch in enumerate(valid_loader):
-        batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
-        targets = batch["answerCode"] - 1
+        if args.model.lower() in ['mf', 'lmf']:
+            batch = batch[0].to(args.device)
+            preds = model(batch[:,:2]).unsqueeze(1)
+            targets = batch[:,-1].unsqueeze(1)
+        else:
+            batch = {k: v.to(args.device) for k, v in batch.items()}
+            preds = model(**batch)
+            targets = batch["answerCode"] - 1
 
         losses.append(compute_loss(preds=preds, targets=targets, args= args))
         # predictions
@@ -178,8 +191,12 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
     total_preds = []
     for step, batch in enumerate(test_loader):
-        batch = {k: v.to(args.device) for k, v in batch.items()}
-        preds = model(**batch)
+        if args.model.lower() in ['mf', 'lmf']:
+            batch = batch[0].to(args.device)
+            preds = model(batch[:,:2]).unsqueeze(1)
+        else:
+            batch = {k: v.to(args.device) for k, v in batch.items()}
+            preds = model(**batch)
 
         # predictions
         preds = sigmoid(preds[:, -1])
@@ -209,6 +226,8 @@ def get_model(args) -> nn.Module:
             "lqtl": LastQueryTransformerEncoderLSTM,
             "tl": TransformerEncoderLSTM,
             "vlqtl": VanillaLQTL,
+            "mf": MF,
+            "lmf": LMF,
         }.get(model_name)(args)
     except KeyError:
         logger.warn("No model name %s found", model_name)
