@@ -10,27 +10,34 @@ from lightgcn.utils import get_logger, logging_conf
 logger = get_logger(logging_conf)
 
 
-def prepare_dataset(device: str, data_dir: str) -> Tuple[dict, dict, int]:
-    data = load_data(data_dir=data_dir)
+def prepare_dataset(
+    device: str, data_dir: str, tag: str = ""
+) -> Tuple[dict, dict, int, dict]:
+    data = load_data(data_dir=data_dir, tag=tag)
     train_data, test_data = separate_data(data=data)
     id2index: dict = indexing_data(data=data)
     train_data_proc = process_data(data=train_data, id2index=id2index, device=device)
     test_data_proc = process_data(data=test_data, id2index=id2index, device=device)
-
     print_data_stat(train_data, "Train")
     print_data_stat(test_data, "Test")
 
-    return train_data_proc, test_data_proc, len(id2index)
+    return train_data_proc, test_data_proc, len(id2index), id2index
 
 
-def load_data(data_dir: str) -> pd.DataFrame: 
-    path1 = os.path.join(data_dir, "train_data.csv")
-    path2 = os.path.join(data_dir, "test_data.csv")
+def load_data(data_dir: str, tag: str = "") -> pd.DataFrame:
+    if tag == "":
+        path1 = os.path.join(data_dir, "train_data.csv")
+        path2 = os.path.join(data_dir, "test_data.csv")
+    else:
+        path1 = os.path.join(data_dir, "train_data_tag" + str(tag) + ".csv")
+        path2 = os.path.join(data_dir, "test_data_tag" + str(tag) + ".csv")
     data1 = pd.read_csv(path1)
     data2 = pd.read_csv(path2)
 
     data = pd.concat([data1, data2])
-    data.drop_duplicates(subset=["userID", "assessmentItemID"], keep="last", inplace=True)
+    data.drop_duplicates(
+        subset=["userID", "assessmentItemID"], keep="last", inplace=True
+    )
     return data
 
 
@@ -62,8 +69,7 @@ def process_data(data: pd.DataFrame, id2index: dict, device: str) -> dict:
 
     edge = torch.LongTensor(edge).T
     label = torch.LongTensor(label)
-    return dict(edge=edge.to(device),
-                label=label.to(device))
+    return dict(edge=edge.to(device), label=label.to(device))
 
 
 def print_data_stat(data: pd.DataFrame, name: str) -> None:
@@ -75,4 +81,3 @@ def print_data_stat(data: pd.DataFrame, name: str) -> None:
     logger.info(f" * Max. UserID   : {max(userid)}")
     logger.info(f" * Num. Items    : {n_item}")
     logger.info(f" * Num. Records  : {len(data)}")
-

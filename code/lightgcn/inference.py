@@ -20,8 +20,8 @@ def main(args: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     logger.info("Preparing data ...")
-    train_data, test_data, n_node = prepare_dataset(
-        device=device, data_dir=args.data_dir
+    train_data, test_data, n_node, id2index = prepare_dataset(
+        device=device, data_dir=args.data_dir, tag=args.tag
     )
 
     logger.info("Loading Model ...")

@@ -28,8 +28,8 @@ def main(args: DictConfig):
     device = torch.device("cuda" if use_cuda else "cpu")
 
     logger.info("Preparing data ...")
-    train_data, test_data, n_node = prepare_dataset(
-        device=device, data_dir=args.data_dir
+    train_data, test_data, n_node, id2index = prepare_dataset(
+        device=device, data_dir=args.data_dir, tag=args.tag
     )
 
     logger.info("Building Model ...")
@@ -48,6 +48,8 @@ def main(args: DictConfig):
         n_epochs=args.n_epochs,
         learning_rate=args.lr,
         model_dir=args.model_dir,
+        id2index=id2index,
+        model_filename=args.model_filename,
     )
 
 
