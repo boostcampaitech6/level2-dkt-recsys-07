@@ -16,7 +16,8 @@ model_name: "best_model.pt"  # Name of the model file
 # Data Process Parameters
 split_ratio: 0.7
 cv: 0
-stride: 100
+random_aug: False
+stride: 0
 sequence_split: False
 
 # Training Parameters
