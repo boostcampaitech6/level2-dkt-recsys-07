@@ -83,7 +83,7 @@ def run(
             if model_filename == "lightgcn":
                 torch.save(
                     obj={"model": model.state_dict(), "epoch": e + 1},
-                    f=os.path.join(model_dir, f"best_model2.pt"),
+                    f=os.path.join(model_dir, f"best_model.pt"),
                 )
             else:
                 torch.save(
@@ -93,7 +93,7 @@ def run(
     if model_filename == "lightgcn":
         torch.save(
             obj={"model": model.state_dict(), "epoch": e + 1},
-            f=os.path.join(model_dir, f"last_model2.pt"),
+            f=os.path.join(model_dir, f"last_model.pt"),
         )
     else:
         torch.save(
