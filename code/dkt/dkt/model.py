@@ -135,3 +135,42 @@ class BERT(ModelBase):
         out = out.contiguous().view(batch_size, -1, 2 * self.hidden_dim)
         out = self.fc(out).view(batch_size, -1)
         return out
+
+class MF(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.user_dims = args.n_cate['userID']
+        self.item_dims = args.n_cate['assessmentItemID']
+        # hidden_dim을 embeddding dim으로 사용
+        self.user_embedding = nn.Embedding(self.user_dims, args.hidden_dim)
+        self.item_embedding = nn.Embedding(self.item_dims, args.hidden_dim)
+        torch.nn.init.xavier_normal_(self.user_embedding.weight.data)
+        torch.nn.init.xavier_normal_(self.item_embedding.weight.data)
+        # 전체 정답률 평균
+        self.mu = 0.6546385
+        self.b_u = nn.Parameter(torch.zeros(self.user_dims))
+        self.b_i = nn.Parameter(torch.zeros(self.item_dims))
+        self.b = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        uid = x[:, 0]
+        iid = x[:, 1]
+
+        user_x = self.user_embedding(uid)
+        item_x = self.item_embedding(iid)
+        dot = (user_x * item_x).sum(dim = 1)
+        return self.mu + dot + self.b_u[uid] + self.b_i[iid] + self.b
+        
+class LMF(MF):
+    def __init__(self, args):
+        super().__init__(args)
+
+    def forward(self, x):
+        uid = x[:, 0]
+        iid = x[:, 1]
+
+        user_x = self.user_embedding(uid)
+        item_x = self.item_embedding(iid)
+        dot = (user_x * item_x).sum(dim = 1)
+        logit = dot + self.b_u[uid] + self.b_i[iid]
+        return torch.exp(logit) / (1 + torch.exp(logit))
