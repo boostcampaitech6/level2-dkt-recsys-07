@@ -142,7 +142,7 @@ class Preprocess:
         }
         
         # MF는 group을 만들지 않고 return 
-        if self.args.model.lower() == 'mf':
+        if self.args.model.lower() in ['mf', 'lmf']:
             df = df[['userID', 'assessmentItemID', 'answerCode']]
             return df.values
 
@@ -218,7 +218,7 @@ def get_loaders(
     train_loader, valid_loader = None, None
 
     if train is not None:
-        if args.model.lower() == 'mf':
+        if args.model.lower() in ['mf', 'lmf']:
             trainset = TensorDataset(torch.LongTensor(train))
         else:
             trainset = DKTDataset(train, args)
@@ -230,7 +230,7 @@ def get_loaders(
             pin_memory=pin_memory,
         )
     if valid is not None:
-        if args.model.lower() == 'mf':
+        if args.model.lower() in ['mf', 'lmf']:
             valset = TensorDataset(torch.LongTensor(valid))
         else:
             valset = DKTDataset(valid, args)

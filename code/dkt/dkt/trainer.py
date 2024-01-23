@@ -9,7 +9,7 @@ import wandb
 from .criterion import get_criterion
 from .dataloader import get_loaders
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, BERT, MF
+from .model import LSTM, LSTMATTN, BERT, MF, LMF
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 from .utils import get_logger, logging_conf
@@ -102,7 +102,7 @@ def train(
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        if args.model.lower() == 'mf':
+        if args.model.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
             # loss 계산을 위해 shape 변경
             preds = model(batch[:,:2]).unsqueeze(1)
@@ -144,7 +144,7 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_preds = []
     total_targets = []
     for step, batch in enumerate(valid_loader):
-        if args.model.lower() == 'mf':
+        if args.model.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
             preds = model(batch[:,:2]).unsqueeze(1)
             targets = batch[:,-1].unsqueeze(1)
@@ -175,7 +175,7 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
     total_preds = []
     for step, batch in enumerate(test_loader):
-        if args.model.lower() == 'mf':
+        if args.model.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
             preds = model(batch[:,:2]).unsqueeze(1)
         else:
@@ -208,6 +208,7 @@ def get_model(args) -> nn.Module:
             "lstmattn": LSTMATTN,
             "bert": BERT,
             "mf": MF,
+            "lmf": LMF,
         }.get(
             model_name
         )(args)
