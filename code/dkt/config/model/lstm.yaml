@@ -1,0 +1,4 @@
+name : lstm
+hidden_dim: 48
+n_layers: 1
+max_seq_len: 100  # Maximum sequence length

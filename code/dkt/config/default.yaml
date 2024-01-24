@@ -1,6 +1,7 @@
 # Basic Configuration
+seed_fix: False
 seed: 42  # Seed for reproducibility
-device: cpu  # Device to use: cpu or gpu
+device: gpu  # Device to use: cpu or gpu
 
 # Directories
 data_dir: "../../data/"  # Directory for data
@@ -9,41 +10,42 @@ model_dir: "models/"  # Directory for storing models
 output_dir: "outputs/"  # Directory for output files
 
 # File Names
-file_name: "full_train_data.csv"  # Name of the train file
-test_file_name: "test_data.csv"  # Name of the test file
+file_name: "FE_train_data.csv"  # Name of the train file
+test_file_name: "FE_test_data.csv"  # Name of the test file
 model_name: "best_model.pt"  # Name of the model file
 
 # Data Process Parameters
-split_ratio: 0.7
-cv: 0
 random_aug: False
-stride: 0
+session_aug: False
+split_ratio: 0.8  # (train / (train+valid)) ratio
+cv: 0  # for cross validation
+stride: 0 # for sliding window
 sequence_split: False
 
 # Training Parameters
 num_workers: 2  # Number of workers
-n_epochs: 300  # Number of training epochs
-batch_size: 1024  # Batch size
-lr: 0.0001  # Learning rate
+n_epochs: 50  # Number of training epochs
+batch_size: 512  # Batch size
+lr: 0.00005  # Learning rate
 clip_grad: 10  # Gradient clipping
 patience: 30  # Patience for early stopping
 log_steps: 50  # Logging frequency in steps
 weight_decay: 0.01
 
 # Loss Function
-roc_star: True
+roc_star: False
 gamma: 0.3
 
 # Model Configuration
-cate_cols: ["userID", "assessmentItemID"]
-cont_cols: ["Timestamp"]
-max_seq_len: 100  # Maximum sequence length
-hidden_dim: 32  # Hidden dimension size
-n_layers: 2  # Number of layers in the emodel
-n_heads: 2  # Number of heads in the model
-drop_out: 0.2  # Dropout rate
+cate_cols: ["testId", "assessmentItemID", "KnowledgeTag", "BigTag", "solving_is_weekend"]
+cont_cols: ["Timestamp", "total_tag_correct"]
+defaults:
+  - _self_
+  - model : lqtl #choose in [lstm, lstmattn, bert, lqtl, tl]
 
 # Model, Optimizer, and Scheduler Types
-model: lmf  # Type of model to use
-optimizer: adam  # Type of optimizer
+optimizer: adamW  # Type of optimizer
 scheduler: plateau  # Type of learning rate scheduler
+loss_function: bce #bce, focal
+focal_alpha: 0.7
+focal_gamma: 4
