@@ -113,9 +113,7 @@ def train(
             targets = batch["answerCode"] - 1
 
         if args.roc_star == True:
-            preds = sigmoid(preds[:, -1])
-            targets = targets[:, -1]
-            loss = roc_star(preds, targets, args)
+            loss = roc_star_paper(preds[:, -1], targets[:, -1], args)
         else:
             loss = compute_loss(preds=preds, targets=targets)
         update_params(
@@ -126,9 +124,8 @@ def train(
             logger.info("Training steps: %s Loss: %.4f", step, loss.item())
 
         # predictions
-        if args.roc_star == False:
-            preds = sigmoid(preds[:, -1])
-            targets = targets[:, -1]
+        preds = sigmoid(preds[:, -1])
+        targets = targets[:, -1]
 
         total_preds.append(preds.detach())
         total_targets.append(targets.detach())
@@ -282,11 +279,11 @@ def load_model(args):
     logger.info("Successfully loaded model state from: %s", model_path)
     return model
 
-def roc_star(y_pred, y_true, args):
-    y_true = (y_true >= 0.5)
+def roc_star_paper(y_pred, _y_true, args):
+    y_true = (_y_true >= 0.5)
 
     # if batch is either all true or false return small random stub value.
-    if torch.sum(y_true)==0 or torch.sum(y_true) == y_true.shape[0]: return torch.sum(y_pred)*1e-8
+    if torch.sum(y_true)==0 or torch.sum(y_true) == y_true.shape[0]: return y_pred.shape[0] * 1e-8
 
     pos = y_pred[y_true]
     neg = y_pred[~y_true]
@@ -300,6 +297,6 @@ def roc_star(y_pred, y_true, args):
     diff = -(pos_expand - neg_expand - args.gamma)
     diff = diff[diff>0]
 
-    loss = torch.sum(torch.pow(diff,2))
+    loss = torch.sum(diff*diff)
     loss = loss / (ln_pos + ln_neg)
-    return loss
+    return loss + 1e-8
