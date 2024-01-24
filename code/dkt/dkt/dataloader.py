@@ -14,6 +14,7 @@ from .valid import make_valid
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
+
 class Preprocess:
     def __init__(self, args):
         self.args = args
@@ -90,11 +91,11 @@ class Preprocess:
             os.makedirs(self.args.asset_dir)
 
         df["Raw_userID"] = df["userID"]
-        
+
         # 연속형 변수 minmaxscaler
         scaler = MinMaxScaler()
         for col in self.args.cont_cols:
-            if col == 'Timestamp':
+            if col == "Timestamp":
                 continue
             df[col] = scaler.fit_transform(df[col].values.reshape(-1, 1))
 
@@ -136,17 +137,17 @@ class Preprocess:
         df = pd.read_csv(csv_file_path)
         df = self.__feature_engineering(df)
         df = self.__preprocessing(df, is_train)
-        
+
         self.args.n_cate = {
             col: len(np.load(os.path.join(self.args.asset_dir, col + "_classes.npy")))
             for col in self.args.cate_cols
         }
-        
-        # MF는 group을 만들지 않고 return 
-        if self.args.model.lower() in ['mf', 'lmf']:
-            df = df[['userID', 'assessmentItemID', 'answerCode']]
+
+        # MF는 group을 만들지 않고 return
+        if self.args.model.name.lower() in ["mf", "lmf"]:
+            df = df[["userID", "assessmentItemID", "answerCode"]]
             if not is_train:
-                df = df[df['answerCode'] == -1]
+                df = df[df["answerCode"] == -1]
             return df.values
 
         df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
@@ -229,7 +230,7 @@ def get_loaders(
     train_loader, valid_loader = None, None
 
     if train is not None:
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             trainset = TensorDataset(torch.LongTensor(train))
         else:
             trainset = DKTDataset(train, args)
@@ -241,7 +242,7 @@ def get_loaders(
             pin_memory=pin_memory,
         )
     if valid is not None:
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             valset = TensorDataset(torch.LongTensor(valid))
         else:
             valset = DKTDataset(valid, args)
@@ -259,7 +260,7 @@ def get_loaders(
 def sliding_window(args, data: np.ndarray) -> np.ndarray:
     if args.session_aug:
         old_len = len(data)
-        session_idx = args.columns[1:].index('solving_session')
+        session_idx = args.columns[1:].index("solving_session")
         stack = []
         for user in tqdm(data):
             session = user[session_idx][0]
@@ -280,7 +281,7 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
                 stack.append(user)
                 continue
 
-            for _ in range((l//args.max_seq_len)**2):
+            for _ in range((l // args.max_seq_len) ** 2):
                 ind = np.random.choice(l, args.max_seq_len, replace=False)
                 ind.sort()
                 stack.append(tuple([r[ind] for r in user]))
