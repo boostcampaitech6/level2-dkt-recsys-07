@@ -13,6 +13,7 @@ from .valid import make_valid
 
 from torch.utils.data import TensorDataset
 
+
 class Preprocess:
     def __init__(self, args):
         self.args = args
@@ -89,15 +90,46 @@ class Preprocess:
             os.makedirs(self.args.asset_dir)
 
         df["Raw_userID"] = df["userID"]
-        
+
         # 연속형 변수 minmaxscaler
         scaler = MinMaxScaler()
         for col in self.args.cont_cols:
-            if col == 'Timestamp':
+            if col == "Timestamp":
                 continue
             df[col] = scaler.fit_transform(df[col].values.reshape(-1, 1))
 
+        if self.args.model.name[:3] == "GCN":
+            path1 = os.path.join(self.args.data_dir, self.args.file_name)
+            path2 = os.path.join(self.args.data_dir, self.args.test_file_name)
+
+            data1 = pd.read_csv(path1)
+            data2 = pd.read_csv(path2)
+
+            data = pd.concat([data1, data2])
+            data.drop_duplicates(
+                subset=["userID", "assessmentItemID"], keep="last", inplace=True
+            )
+
+            userid, itemid = (
+                sorted(list(set(data.userID))),
+                sorted(list(set(data.assessmentItemID))),
+            )
+            n_user, n_item = len(userid), len(itemid)
+
+            userid2index = {v: i + 1 for i, v in enumerate(userid)}  # 0 은 패딩이므로 비워둡니다.
+            itemid2index = {v: i + n_user + 1 for i, v in enumerate(itemid)}
+            id2idx = dict(userid2index, **itemid2index)
+            id2idx["unknown"] = 0
+
+            for col in ["userID", "assessmentItemID"]:
+                df[col] = df[col].map(id2idx)
+
         for col in self.args.cate_cols:
+            if (
+                col in ["userID", "assessmentItemID"]
+                and self.args.model.name[:3] == "GCN"
+            ):
+                continue
             le = LabelEncoder()
             if is_train:
                 # For UNKNOWN class
@@ -135,15 +167,15 @@ class Preprocess:
         df = pd.read_csv(csv_file_path)
         df = self.__feature_engineering(df)
         df = self.__preprocessing(df, is_train)
-        
+
         self.args.n_cate = {
             col: len(np.load(os.path.join(self.args.asset_dir, col + "_classes.npy")))
             for col in self.args.cate_cols
         }
-        
-        # MF는 group을 만들지 않고 return 
-        if self.args.model.lower() in ['mf', 'lmf']:
-            df = df[['userID', 'assessmentItemID', 'answerCode']]
+
+        # MF는 group을 만들지 않고 return
+        if self.args.model.name.lower() in ["mf", "lmf"]:
+            df = df[["userID", "assessmentItemID", "answerCode"]]
             return df.values
 
         df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
@@ -226,7 +258,7 @@ def get_loaders(
     train_loader, valid_loader = None, None
 
     if train is not None:
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             trainset = TensorDataset(torch.LongTensor(train))
         else:
             trainset = DKTDataset(train, args)
@@ -238,7 +270,7 @@ def get_loaders(
             pin_memory=pin_memory,
         )
     if valid is not None:
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             valset = TensorDataset(torch.LongTensor(valid))
         else:
             valset = DKTDataset(valid, args)
@@ -262,7 +294,7 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
                 stack.append(user)
                 continue
 
-            for _ in range((l//args.max_seq_len)**2):
+            for _ in range((l // args.max_seq_len) ** 2):
                 ind = np.random.choice(l, args.max_seq_len, replace=False)
                 ind.sort()
                 stack.append(tuple([r[ind] for r in user]))

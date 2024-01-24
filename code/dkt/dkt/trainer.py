@@ -4,6 +4,7 @@ import os
 import numpy as np
 import torch
 from torch import nn, sigmoid
+from torch_geometric.nn.models import LightGCN
 import wandb
 
 from .criterion import get_criterion
@@ -16,8 +17,12 @@ from .model import (
     LastQueryTransformerEncoderLSTM,
     TransformerEncoderLSTM,
     VanillaLQTL,
+    GCNLSTM,
+    GCNLSTMATTN,
+    GCNLastQueryTransformerEncoderLSTM,
+    GCNTransformerEncoderLSTM,
     MF,
-    LMF
+    LMF,
 )
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
@@ -113,17 +118,17 @@ def train(
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             batch = batch[0].to(args.device)
             # loss 계산을 위해 shape 변경
-            preds = model(batch[:,:2]).unsqueeze(1)
-            targets = batch[:,-1].unsqueeze(1)
+            preds = model(batch[:, :2]).unsqueeze(1)
+            targets = batch[:, -1].unsqueeze(1)
         else:
             batch = {k: v.to(args.device) for k, v in batch.items()}
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
-        loss = compute_loss(preds=preds, targets=targets, args= args)
+        loss = compute_loss(preds=preds, targets=targets, args=args)
         update_params(
             loss=loss, model=model, optimizer=optimizer, scheduler=scheduler, args=args
         )
@@ -156,16 +161,16 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_targets = []
     losses = []
     for step, batch in enumerate(valid_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             batch = batch[0].to(args.device)
-            preds = model(batch[:,:2]).unsqueeze(1)
-            targets = batch[:,-1].unsqueeze(1)
+            preds = model(batch[:, :2]).unsqueeze(1)
+            targets = batch[:, -1].unsqueeze(1)
         else:
             batch = {k: v.to(args.device) for k, v in batch.items()}
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
-        losses.append(compute_loss(preds=preds, targets=targets, args= args))
+        losses.append(compute_loss(preds=preds, targets=targets, args=args))
         # predictions
         preds = sigmoid(preds[:, -1])
         targets = targets[:, -1]
@@ -173,10 +178,8 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
         total_preds.append(preds.detach())
         total_targets.append(targets.detach())
 
-
     total_preds = torch.concat(total_preds).cpu().numpy()
     total_targets = torch.concat(total_targets).cpu().numpy()
-
 
     # Train AUC / ACC
     auc, acc = get_metric(targets=total_targets, preds=total_preds)
@@ -191,9 +194,9 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
     total_preds = []
     for step, batch in enumerate(test_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             batch = batch[0].to(args.device)
-            preds = model(batch[:,:2]).unsqueeze(1)
+            preds = model(batch[:, :2]).unsqueeze(1)
         else:
             batch = {k: v.to(args.device) for k, v in batch.items()}
             preds = model(**batch)
@@ -216,6 +219,20 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
     logger.info("Successfully saved submission as %s", write_path)
 
 
+def gcn_build(n_node: int, weight: str = None, **kwargs):
+    model = LightGCN(num_nodes=n_node, **kwargs)
+    if weight:
+        if not os.path.isfile(path=weight):
+            logger.fatal("Model Weight File Not Exist")
+        logger.info("Load model")
+        state = torch.load(f=weight)["model"]
+        model.load_state_dict(state)
+        return model
+    else:
+        logger.info("No load model")
+        return model
+
+
 def get_model(args) -> nn.Module:
     try:
         model_name = args.model.name.lower()
@@ -226,9 +243,28 @@ def get_model(args) -> nn.Module:
             "lqtl": LastQueryTransformerEncoderLSTM,
             "tl": TransformerEncoderLSTM,
             "vlqtl": VanillaLQTL,
+            "gcnlstm": GCNLSTM,
+            "gcnlstmattn": GCNLSTMATTN,
+            "gcnlqtl": GCNLastQueryTransformerEncoderLSTM,
+            "gcntl": GCNTransformerEncoderLSTM,
             "mf": MF,
             "lmf": LMF,
         }.get(model_name)(args)
+        if args.model.name[:3].lower() == "gcn":
+            weight: str = os.path.join(
+                args.model.gcn.model_dir, args.model.gcn.model_name
+            )
+            gcn_model: torch.nn.Module = gcn_build(
+                n_node=args.model.gcn.n_node,
+                embedding_dim=args.model.gcn.hidden_dim,
+                num_layers=args.model.gcn.n_layers,
+                alpha=args.model.gcn.alpha,
+                weight=weight,
+            )
+            model.gcn_embedding.weight = nn.Parameter(
+                gcn_model.embedding.weight.clone(), requires_grad=False
+            )
+
     except KeyError:
         logger.warn("No model name %s found", model_name)
     except Exception as e:
@@ -245,7 +281,7 @@ def compute_loss(preds: torch.Tensor, targets: torch.Tensor, args):
         targets : (batch_size, max_seq_len)
 
     """
-    loss = get_criterion(pred=preds, target=targets.float(), args= args)
+    loss = get_criterion(pred=preds, target=targets.float(), args=args)
 
     # 마지막 시퀀드에 대한 값만 loss 계산
     loss = loss[:, -1]
