@@ -27,7 +27,7 @@ n_epochs: 50  # Number of training epochs
 batch_size: 512  # Batch size
 lr: 0.00005  # Learning rate
 clip_grad: 10  # Gradient clipping
-patience: 2  # Patience for early stopping
+patience: 30  # Patience for early stopping
 log_steps: 50  # Logging frequency in steps
 
 # Model Configuration
