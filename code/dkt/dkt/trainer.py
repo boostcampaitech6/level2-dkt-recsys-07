@@ -17,7 +17,7 @@ from .model import (
     TransformerEncoderLSTM,
     VanillaLQTL,
     MF,
-    LMF
+    LMF,
 )
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
@@ -113,20 +113,22 @@ def train(
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             batch = batch[0].to(args.device)
             # loss 계산을 위해 shape 변경
-            preds = model(batch[:,:2]).unsqueeze(1)
-            targets = batch[:,-1].unsqueeze(1)
+            preds = model(batch[:, :2]).unsqueeze(1)
+            targets = batch[:, -1].unsqueeze(1)
         else:
             batch = {k: v.to(args.device) for k, v in batch.items()}
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
         if args.roc_star == True:
-            loss = roc_star_paper(preds[:, -1].to(args.device), targets[:, -1].to(args.device), args)
+            loss = roc_star_paper(
+                preds[:, -1].to(args.device), targets[:, -1].to(args.device), args
+            )
         else:
-            loss = compute_loss(preds=preds, targets=targets, args= args)
+            loss = compute_loss(preds=preds, targets=targets, args=args)
         update_params(
             loss=loss, model=model, optimizer=optimizer, scheduler=scheduler, args=args
         )
@@ -159,16 +161,16 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_targets = []
     losses = []
     for step, batch in enumerate(valid_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             batch = batch[0].to(args.device)
-            preds = model(batch[:,:2]).unsqueeze(1)
-            targets = batch[:,-1].unsqueeze(1)
+            preds = model(batch[:, :2]).unsqueeze(1)
+            targets = batch[:, -1].unsqueeze(1)
         else:
             batch = {k: v.to(args.device) for k, v in batch.items()}
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
-        losses.append(compute_loss(preds=preds, targets=targets, args= args))
+        losses.append(compute_loss(preds=preds, targets=targets, args=args))
         # predictions
         preds = sigmoid(preds[:, -1])
         targets = targets[:, -1]
@@ -176,10 +178,8 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
         total_preds.append(preds.detach())
         total_targets.append(targets.detach())
 
-
     total_preds = torch.concat(total_preds).cpu().numpy()
     total_targets = torch.concat(total_targets).cpu().numpy()
-
 
     # Train AUC / ACC
     auc, acc = get_metric(targets=total_targets, preds=total_preds)
@@ -194,9 +194,9 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
     total_preds = []
     for step, batch in enumerate(test_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ["mf", "lmf"]:
             batch = batch[0].to(args.device)
-            preds = model(batch[:,:2]).unsqueeze(1)
+            preds = model(batch[:, :2]).unsqueeze(1)
         else:
             batch = {k: v.to(args.device) for k, v in batch.items()}
             preds = model(**batch)
@@ -248,7 +248,7 @@ def compute_loss(preds: torch.Tensor, targets: torch.Tensor, args):
         targets : (batch_size, max_seq_len)
 
     """
-    loss = get_criterion(pred=preds, target=targets.float(), args= args)
+    loss = get_criterion(pred=preds, target=targets.float(), args=args)
 
     # 마지막 시퀀드에 대한 값만 loss 계산
     loss = loss[:, -1]
@@ -294,11 +294,13 @@ def load_model(args):
     logger.info("Successfully loaded model state from: %s", model_path)
     return model
 
+
 def roc_star_paper(y_pred, _y_true, args):
-    y_true = (_y_true >= 0.5)
+    y_true = _y_true >= 0.5
 
     # if batch is either all true or false return small random stub value.
-    if torch.sum(y_true)==0 or torch.sum(y_true) == y_true.shape[0]: return y_pred.shape[0] * 1e-8
+    if torch.sum(y_true) == 0 or torch.sum(y_true) == y_true.shape[0]:
+        return y_pred.shape[0] * 1e-8
 
     pos = y_pred[y_true]
     neg = y_pred[~y_true]
@@ -308,12 +310,12 @@ def roc_star_paper(y_pred, _y_true, args):
 
     pos, neg = pos[pos < max(neg) + args.gamma], neg[neg > min(pos) - args.gamma]
 
-    pos_expand = pos.view(-1,1).expand(-1,ln_neg).reshape(-1)
+    pos_expand = pos.view(-1, 1).expand(-1, ln_neg).reshape(-1)
     neg_expand = neg.repeat(ln_pos)
 
     diff = -(pos_expand - neg_expand - args.gamma)
-    diff = diff[diff>0]
+    diff = diff[diff > 0]
 
-    loss = torch.sum(diff*diff)
+    loss = torch.sum(diff * diff)
     loss = loss / (ln_pos + ln_neg)
     return loss + 1e-8
