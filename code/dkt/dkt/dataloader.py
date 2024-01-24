@@ -144,6 +144,8 @@ class Preprocess:
         # MF는 group을 만들지 않고 return 
         if self.args.model.lower() in ['mf', 'lmf']:
             df = df[['userID', 'assessmentItemID', 'answerCode']]
+            if not is_train:
+                df = df[df['answerCode'] == -1]
             return df.values
 
         df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
