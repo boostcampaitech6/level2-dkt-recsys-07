@@ -9,7 +9,16 @@ import wandb
 from .criterion import get_criterion
 from .dataloader import get_loaders
 from .metric import get_metric
-from .model import LSTM, LSTMATTN, BERT, MF, LMF
+from .model import (
+    LSTM,
+    LSTMATTN,
+    BERT,
+    LastQueryTransformerEncoderLSTM,
+    TransformerEncoderLSTM,
+    VanillaLQTL,
+    MF,
+    LMF
+)
 from .optimizer import get_optimizer
 from .scheduler import get_scheduler
 from .utils import get_logger, logging_conf
@@ -47,7 +56,7 @@ def run(args, train_data: np.ndarray, valid_data: np.ndarray, model: nn.Module):
         )
 
         # VALID
-        auc, acc = validate(valid_loader=valid_loader, model=model, args=args)
+        auc, acc, loss = validate(valid_loader=valid_loader, model=model, args=args)
 
         wandb.log(
             dict(
@@ -55,8 +64,10 @@ def run(args, train_data: np.ndarray, valid_data: np.ndarray, model: nn.Module):
                 train_loss_epoch=train_loss,
                 train_auc_epoch=train_auc,
                 train_acc_epoch=train_acc,
+                valid_loss_epoch=loss,
                 valid_auc_epoch=auc,
                 valid_acc_epoch=acc,
+                best_valid_auc=max(best_auc, auc),
             )
         )
 
@@ -65,9 +76,9 @@ def run(args, train_data: np.ndarray, valid_data: np.ndarray, model: nn.Module):
             # nn.DataParallel로 감싸진 경우 원래의 model을 가져옵니다.
             model_to_save = model.module if hasattr(model, "module") else model
             if args.cv > 0:
-                model_filename = f"{args.model}_CV_{args.cv}_{args.model_name}"
+                model_filename = f"{args.model.name}_CV_{args.cv}_{args.model_name}"
             else:
-                model_filename = f"{args.model}_{args.model_name}"
+                model_filename = f"{args.model.name}_{args.model_name}"
             save_checkpoint(
                 state={"epoch": epoch + 1, "state_dict": model_to_save.state_dict()},
                 model_dir=args.model_dir,
@@ -112,7 +123,7 @@ def train(
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
-        loss = compute_loss(preds=preds, targets=targets)
+        loss = compute_loss(preds=preds, targets=targets, args= args)
         update_params(
             loss=loss, model=model, optimizer=optimizer, scheduler=scheduler, args=args
         )
@@ -143,6 +154,7 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
 
     total_preds = []
     total_targets = []
+    losses = []
     for step, batch in enumerate(valid_loader):
         if args.model.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
@@ -153,6 +165,7 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
             preds = model(**batch)
             targets = batch["answerCode"] - 1
 
+        losses.append(compute_loss(preds=preds, targets=targets, args= args))
         # predictions
         preds = sigmoid(preds[:, -1])
         targets = targets[:, -1]
@@ -160,13 +173,16 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
         total_preds.append(preds.detach())
         total_targets.append(targets.detach())
 
+
     total_preds = torch.concat(total_preds).cpu().numpy()
     total_targets = torch.concat(total_targets).cpu().numpy()
 
+
     # Train AUC / ACC
     auc, acc = get_metric(targets=total_targets, preds=total_preds)
-    logger.info("VALID AUC : %.4f ACC : %.4f", auc, acc)
-    return auc, acc
+    loss_avg = sum(losses) / len(losses)
+    logger.info("VALID AUC : %.4f ACC : %.4f loss: %.4f", auc, acc, loss_avg)
+    return auc, acc, loss_avg
 
 
 def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
@@ -188,9 +204,9 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
         total_preds += list(preds)
 
     if args.cv > 0:
-        output_file_name = f"{args.model}_CV_{args.cv}_submission.csv"
+        output_file_name = f"{args.model.name}_CV_{args.cv}_submission.csv"
     else:
-        output_file_name = f"{args.model}_submission.csv"
+        output_file_name = f"{args.model.name}_submission.csv"
     write_path = os.path.join(args.output_dir, output_file_name)
     os.makedirs(name=args.output_dir, exist_ok=True)
     with open(write_path, "w", encoding="utf8") as w:
@@ -202,16 +218,17 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
 def get_model(args) -> nn.Module:
     try:
-        model_name = args.model.lower()
+        model_name = args.model.name.lower()
         model = {
             "lstm": LSTM,
             "lstmattn": LSTMATTN,
             "bert": BERT,
+            "lqtl": LastQueryTransformerEncoderLSTM,
+            "tl": TransformerEncoderLSTM,
+            "vlqtl": VanillaLQTL,
             "mf": MF,
             "lmf": LMF,
-        }.get(
-            model_name
-        )(args)
+        }.get(model_name)(args)
     except KeyError:
         logger.warn("No model name %s found", model_name)
     except Exception as e:
@@ -220,7 +237,7 @@ def get_model(args) -> nn.Module:
     return model
 
 
-def compute_loss(preds: torch.Tensor, targets: torch.Tensor):
+def compute_loss(preds: torch.Tensor, targets: torch.Tensor, args):
     """
     loss계산하고 parameter update
     Args :
@@ -228,7 +245,7 @@ def compute_loss(preds: torch.Tensor, targets: torch.Tensor):
         targets : (batch_size, max_seq_len)
 
     """
-    loss = get_criterion(pred=preds, target=targets.float())
+    loss = get_criterion(pred=preds, target=targets.float(), args= args)
 
     # 마지막 시퀀드에 대한 값만 loss 계산
     loss = loss[:, -1]
@@ -261,9 +278,9 @@ def save_checkpoint(state: dict, model_dir: str, model_filename: str) -> None:
 
 def load_model(args):
     if args.cv > 0:
-        model_name = f"{args.model}_CV_{args.cv}_{args.model_name}"
+        model_name = f"{args.model.name}_CV_{args.cv}_{args.model_name}"
     else:
-        model_name = f"{args.model}_{args.model_name}"
+        model_name = f"{args.model.name}_{args.model_name}"
     model_path = os.path.join(args.model_dir, model_name)
     logger.info("Loading Model from: %s", model_path)
     load_state = torch.load(model_path)
