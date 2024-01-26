@@ -50,6 +50,7 @@ def main(args: DictConfig):
         model_dir=args.model_dir,
         id2index=id2index,
         model_filename=args.model_filename,
+        args=args,
     )
 
 
