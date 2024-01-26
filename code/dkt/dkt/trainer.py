@@ -113,7 +113,7 @@ def train(
     total_targets = []
     losses = []
     for step, batch in enumerate(train_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
             # loss 계산을 위해 shape 변경
             preds = model(batch[:,:2]).unsqueeze(1)
@@ -124,7 +124,7 @@ def train(
             targets = batch["answerCode"] - 1
 
         if args.roc_star == True:
-            loss = roc_star_paper(preds[:, -1].to(args.device), targets[:, -1].to(args.device), args)
+            loss = roc_star_paper(preds[:, -1], targets[:, -1], args)
         else:
             loss = compute_loss(preds=preds, targets=targets, args= args)
         update_params(
@@ -159,7 +159,7 @@ def validate(valid_loader: nn.Module, model: nn.Module, args):
     total_targets = []
     losses = []
     for step, batch in enumerate(valid_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
             preds = model(batch[:,:2]).unsqueeze(1)
             targets = batch[:,-1].unsqueeze(1)
@@ -194,7 +194,7 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
 
     total_preds = []
     for step, batch in enumerate(test_loader):
-        if args.model.lower() in ['mf', 'lmf']:
+        if args.model.name.lower() in ['mf', 'lmf']:
             batch = batch[0].to(args.device)
             preds = model(batch[:,:2]).unsqueeze(1)
         else:
@@ -306,8 +306,14 @@ def roc_star_paper(y_pred, _y_true, args):
     ln_pos = pos.shape[0]
     ln_neg = neg.shape[0]
 
-    pos, neg = pos[pos < max(neg) + args.gamma], neg[neg > min(pos) - args.gamma]
+    max_pos = 1000 # Max number of positive training samples
+    max_neg = 1000 # Max number of positive training samples
+    pos = pos[torch.rand_like(pos) < max_pos/ln_pos]
+    neg = neg[torch.rand_like(neg) < max_neg/ln_neg]
 
+    ln_pos = pos.shape[0]
+    ln_neg = neg.shape[0]
+    
     pos_expand = pos.view(-1,1).expand(-1,ln_neg).reshape(-1)
     neg_expand = neg.repeat(ln_pos)
 
