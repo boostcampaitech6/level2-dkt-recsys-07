@@ -16,6 +16,7 @@ model_name: "best_model.pt"  # Name of the model file
 
 # Data Process Parameters
 random_aug: False
+session_aug: False
 split_ratio: 0.8  # (train / (train+valid)) ratio
 cv: 0  # for cross validation
 stride: 0 # for sliding window
@@ -28,8 +29,13 @@ batch_size: 512  # Batch size
 lr: 0.00005  # Learning rate
 weight_decay: 0.01
 clip_grad: 10  # Gradient clipping
-patience: 2  # Patience for early stopping
+patience: 30  # Patience for early stopping
 log_steps: 50  # Logging frequency in steps
+weight_decay: 0.01
+
+# Loss Function
+roc_star: False
+gamma: 0.3
 
 # Model Configuration
 cate_cols: ["userID", "testId", "assessmentItemID", "KnowledgeTag"]
@@ -41,6 +47,6 @@ defaults:
 # Model, Optimizer, and Scheduler Types
 optimizer: adamW  # Type of optimizer
 scheduler: plateau  # Type of learning rate scheduler
-loss_function: focal #bce, focal
+loss_function: bce #bce, focal
 focal_alpha: 0.7
 focal_gamma: 4

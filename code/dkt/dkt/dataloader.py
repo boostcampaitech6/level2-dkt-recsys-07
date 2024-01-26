@@ -12,6 +12,7 @@ from sklearn.preprocessing import MinMaxScaler
 from .valid import make_valid
 
 from torch.utils.data import TensorDataset
+from tqdm import tqdm
 
 
 class Preprocess:
@@ -176,6 +177,8 @@ class Preprocess:
         # MF는 group을 만들지 않고 return
         if self.args.model.name.lower() in ["mf", "lmf"]:
             df = df[["userID", "assessmentItemID", "answerCode"]]
+            if not is_train:
+                df = df[df["answerCode"] == -1]
             return df.values
 
         df = df.sort_values(by=["Raw_userID", "Timestamp"], axis=0)
@@ -286,9 +289,24 @@ def get_loaders(
 
 
 def sliding_window(args, data: np.ndarray) -> np.ndarray:
-    if args.random_aug:
+    if args.session_aug:
+        old_len = len(data)
+        session_idx = args.columns[1:].index("solving_session")
         stack = []
-        for user in data:
+        for user in tqdm(data):
+            session = user[session_idx][0]
+            for idx, ss in enumerate(user[session_idx]):
+                if ss != session:
+                    session = ss
+                    stack.append(tuple([col[:idx] for col in user]))
+            stack.append(user)
+        data = np.empty(len(stack), dtype=object)
+        for i, row in enumerate(stack):
+            data[-(i + 1)] = row
+        print(f"Augmentated from {old_len} to {len(stack)}")
+    elif args.random_aug:
+        stack = []
+        for user in tqdm(data):
             l = len(user[0])
             if l < args.max_seq_len:
                 stack.append(user)
@@ -304,7 +322,7 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
     elif args.stride > 0:
         old_len = len(data)
         stack = []
-        for user in data:
+        for user in tqdm(data):
             stack.append(user)
             last = args.stride
             while len(user[0]) - last > 14:
