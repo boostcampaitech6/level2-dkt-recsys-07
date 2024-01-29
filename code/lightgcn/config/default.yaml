@@ -1,6 +1,8 @@
 # General settings
 seed: 42
 use_cuda_if_available: true
+tag: ""
+model_filename: "lightgcn"
 
 # Directory paths
 data_dir: "../../data/"
@@ -8,12 +10,12 @@ output_dir: "./outputs/"
 
 # Model configuration
 hidden_dim: 64
-n_layers: 1
+n_layers: 3
 alpha: null
 
 # Training parameters
-n_epochs: 20
-lr: 0.001
+n_epochs: 150
+lr: 0.01
 
 # Model saving options
 model_dir: "./models/"
