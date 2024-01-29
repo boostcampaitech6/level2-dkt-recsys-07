@@ -125,7 +125,7 @@ def run(
                 train_auc_epoch=train_auc,
                 valid_acc_epoch=acc,
                 valid_auc_epoch=auc,
-                best_auc=max(best_auc, auc),
+                valid_auc_best= max(auc, best_auc),
             )
         )
         if auc > best_auc:
