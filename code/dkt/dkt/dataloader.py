@@ -207,48 +207,7 @@ class DKTDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index: int) -> dict:
         row = self.data[index]
-
-        # Load from data
-        data = {
-            col: torch.tensor(row[i] + 1, dtype=torch.int)
-            if i < len(["answerCode"] + self.args.cate_cols)
-            else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
-            for i, col in enumerate(
-                ["answerCode"] + self.args.cate_cols + self.args.cont_cols
-            )
-        }
-        # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
-        seq_len = len(row[0])
-        if seq_len > self.max_seq_len:
-            for k, seq in data.items():
-                data[k] = seq[-self.max_seq_len :]
-            mask = torch.ones(self.max_seq_len, dtype=torch.int16)
-            position = torch.tensor(
-                [-self.max_seq_len + i for i in range(1, self.max_seq_len + 1)],
-                dtype=torch.int,
-            )
-        else:
-            for k, seq in data.items():
-                # Pre-padding non-valid sequences
-                tmp = torch.zeros([self.max_seq_len, 1][: len(data[k].size())])
-                tmp[self.max_seq_len - seq_len :] = data[k]
-                data[k] = tmp
-            mask = torch.zeros(self.max_seq_len, dtype=torch.int16)
-            mask[-seq_len:] = 1
-        position = torch.tensor(
-            [i for i in range(1, self.max_seq_len + 1)], dtype=torch.int16
-        )
-        position = position * mask
-        data["Position"] = position
-        data["mask"] = mask
-        interaction = data["answerCode"]
-        interaction = interaction.roll(shifts=1)
-        interaction_mask = data["mask"].roll(shifts=1)
-        interaction_mask[0] = 0
-        interaction = (interaction * interaction_mask).to(torch.int64)
-        data["Interaction"] = interaction
-        data = {k: v.int() for k, v in data.items()}
-        return data
+        return row
 
     def __len__(self) -> int:
         return len(self.data)
@@ -264,7 +223,7 @@ def get_loaders(
         if args.model.name.lower() in ["mf", "lmf"]:
             trainset = TensorDataset(torch.LongTensor(train))
         else:
-            trainset = DKTDataset(train, args)
+            trainset = DKTDataset(prepare(train, args), args)
         train_loader = torch.utils.data.DataLoader(
             trainset,
             num_workers=args.num_workers,
@@ -276,7 +235,7 @@ def get_loaders(
         if args.model.name.lower() in ["mf", "lmf"]:
             valset = TensorDataset(torch.LongTensor(valid))
         else:
-            valset = DKTDataset(valid, args)
+            valset = DKTDataset(prepare(valid, args), args)
         valid_loader = torch.utils.data.DataLoader(
             valset,
             num_workers=args.num_workers,
@@ -333,3 +292,49 @@ def sliding_window(args, data: np.ndarray) -> np.ndarray:
             data[-(i + 1)] = rows
         print(f"Augmentated from {old_len} to {len(stack)}")
     return data
+
+
+def prepare(dataset, args):
+    max_seq_len = args.model.max_seq_len
+    print("prepare data for dataset")
+    for i, row in tqdm(enumerate(dataset)):
+        # Load from data
+        data = {
+            col: torch.tensor(row[i] + 1, dtype=torch.int)
+            if i < len(["answerCode"] + args.cate_cols)
+            else torch.tensor(row[i] + 1 - min(row[i]), dtype=torch.float).view(-1, 1)
+            for i, col in enumerate(["answerCode"] + args.cate_cols + args.cont_cols)
+        }
+        # Generate mask: max seq len을 고려하여서 이보다 길면 자르고 아닐 경우 그대로 냅둔다
+        seq_len = len(row[0])
+        if seq_len > max_seq_len:
+            for k, seq in data.items():
+                data[k] = seq[-max_seq_len:]
+            mask = torch.ones(max_seq_len, dtype=torch.int16)
+            position = torch.tensor(
+                [max_seq_len + i for i in range(1, max_seq_len + 1)],
+                dtype=torch.int,
+            )
+        else:
+            for k, seq in data.items():
+                # Pre-padding non-valid sequences
+                tmp = torch.zeros([max_seq_len, 1][: len(data[k].size())])
+                tmp[max_seq_len - seq_len :] = data[k]
+                data[k] = tmp
+            mask = torch.zeros(max_seq_len, dtype=torch.int16)
+            mask[-seq_len:] = 1
+        position = torch.tensor(
+            [i for i in range(1, max_seq_len + 1)], dtype=torch.int16
+        )
+        position = position * mask
+        data["Position"] = position
+        data["mask"] = mask
+        interaction = data["answerCode"]
+        interaction = interaction.roll(shifts=1)
+        interaction_mask = data["mask"].roll(shifts=1)
+        interaction_mask[0] = 0
+        interaction = (interaction * interaction_mask).to(torch.int64)
+        data["Interaction"] = interaction
+        data = {k: v.int() for k, v in data.items()}
+        dataset[i] = data
+    return dataset
