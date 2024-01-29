@@ -19,6 +19,9 @@ class ModelBase(nn.Module):
             }
         )
         self.embedding_dict["Interaction"] = nn.Embedding(3, intd)
+        
+        for emb in iter(self.embedding_dict.values()):
+            nn.init.xavier_normal_(emb.weight.data)
 
         # Concatentaed Embedding Projection
         if args.cont_cols == []:
@@ -47,7 +50,7 @@ class ModelBase(nn.Module):
         if self.cont_cols:
             conts = []
             for col in self.cont_cols:
-                conts.append(input[col].float())
+                conts.append(input[col].to(dtype=torch.float))
             if len(self.cont_cols) > 1:
                 conts = torch.cat(conts, dim=2)
             else:
@@ -68,6 +71,7 @@ class LSTM(ModelBase):
             2 * args.model.hidden_dim,
             args.model.n_layers,
             batch_first=True,
+            dropout = args.model.drop_out,
         )
 
     def forward(self, **input):

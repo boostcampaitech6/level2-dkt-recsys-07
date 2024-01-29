@@ -129,9 +129,7 @@ def train(
             targets = batch["answerCode"] - 1
 
         if args.roc_star == True:
-            loss = roc_star_paper(
-                preds[:, -1].to(args.device), targets[:, -1].to(args.device), args
-            )
+            loss = roc_star_paper(preds[:, -1], targets[:, -1], args)
         else:
             loss = compute_loss(preds=preds, targets=targets, args=args)
         update_params(
@@ -346,9 +344,15 @@ def roc_star_paper(y_pred, _y_true, args):
     ln_pos = pos.shape[0]
     ln_neg = neg.shape[0]
 
-    pos, neg = pos[pos < max(neg) + args.gamma], neg[neg > min(pos) - args.gamma]
+    max_pos = 1000 # Max number of positive training samples
+    max_neg = 1000 # Max number of positive training samples
+    pos = pos[torch.rand_like(pos) < max_pos/ln_pos]
+    neg = neg[torch.rand_like(neg) < max_neg/ln_neg]
 
-    pos_expand = pos.view(-1, 1).expand(-1, ln_neg).reshape(-1)
+    ln_pos = pos.shape[0]
+    ln_neg = neg.shape[0]
+    
+    pos_expand = pos.view(-1,1).expand(-1,ln_neg).reshape(-1)
     neg_expand = neg.repeat(ln_pos)
 
     diff = -(pos_expand - neg_expand - args.gamma)
