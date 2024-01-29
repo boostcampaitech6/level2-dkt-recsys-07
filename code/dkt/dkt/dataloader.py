@@ -192,7 +192,6 @@ def get_loaders(
         if args.model.name.lower() in ["mf", "lmf"]:
             trainset = TensorDataset(torch.LongTensor(train))
         else:
-            train
             trainset = DKTDataset(prepare(train, args), args)
         train_loader = torch.utils.data.DataLoader(
             trainset,
