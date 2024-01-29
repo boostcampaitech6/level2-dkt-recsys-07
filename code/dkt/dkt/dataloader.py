@@ -99,7 +99,38 @@ class Preprocess:
                 continue
             df[col] = scaler.fit_transform(df[col].values.reshape(-1, 1))
 
+        if self.args.model.name[:3] == "GCN":
+            path1 = os.path.join(self.args.data_dir, self.args.file_name)
+            path2 = os.path.join(self.args.data_dir, self.args.test_file_name)
+
+            data1 = pd.read_csv(path1)
+            data2 = pd.read_csv(path2)
+
+            data = pd.concat([data1, data2])
+            data.drop_duplicates(
+                subset=["userID", "assessmentItemID"], keep="last", inplace=True
+            )
+
+            userid, itemid = (
+                sorted(list(set(data.userID))),
+                sorted(list(set(data.assessmentItemID))),
+            )
+            n_user, n_item = len(userid), len(itemid)
+
+            userid2index = {v: i + 1 for i, v in enumerate(userid)}  # 0 은 패딩이므로 비워둡니다.
+            itemid2index = {v: i + n_user + 1 for i, v in enumerate(itemid)}
+            id2idx = dict(userid2index, **itemid2index)
+            id2idx["unknown"] = 0
+
+            for col in ["userID", "assessmentItemID"]:
+                df[col] = df[col].map(id2idx)
+
         for col in self.args.cate_cols:
+            if (
+                col in ["userID", "assessmentItemID"]
+                and self.args.model.name[:3] == "GCN"
+            ):
+                continue
             le = LabelEncoder()
             if is_train:
                 # For UNKNOWN class

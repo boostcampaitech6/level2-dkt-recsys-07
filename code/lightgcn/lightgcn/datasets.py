@@ -54,9 +54,10 @@ def indexing_data(data: pd.DataFrame) -> dict:
     )
     n_user, n_item = len(userid), len(itemid)
 
-    userid2index = {v: i for i, v in enumerate(userid)}
-    itemid2index = {v: i + n_user for i, v in enumerate(itemid)}
+    userid2index = {v: i + 1 for i, v in enumerate(userid)}
+    itemid2index = {v: i + n_user + 1 for i, v in enumerate(itemid)}
     id2index = dict(userid2index, **itemid2index)
+    id2index["unknown"] = 0
     return id2index
 
 

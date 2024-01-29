@@ -4,6 +4,7 @@ import os
 import numpy as np
 import torch
 from torch import nn, sigmoid
+from torch_geometric.nn.models import LightGCN
 import wandb
 
 from .criterion import get_criterion
@@ -16,6 +17,10 @@ from .model import (
     LastQueryTransformerEncoderLSTM,
     TransformerEncoderLSTM,
     VanillaLQTL,
+    GCNLSTM,
+    GCNLSTMATTN,
+    GCNLastQueryTransformerEncoderLSTM,
+    GCNTransformerEncoderLSTM,
     MF,
     LMF,
 )
@@ -219,6 +224,20 @@ def inference(args, test_data: np.ndarray, model: nn.Module) -> None:
     logger.info("Successfully saved submission as %s", write_path)
 
 
+def gcn_build(n_node: int, weight: str = None, **kwargs):
+    model = LightGCN(num_nodes=n_node, **kwargs)
+    if weight:
+        if not os.path.isfile(path=weight):
+            logger.fatal("Model Weight File Not Exist")
+        logger.info("Load model")
+        state = torch.load(f=weight)["model"]
+        model.load_state_dict(state)
+        return model
+    else:
+        logger.info("No load model")
+        return model
+
+
 def get_model(args) -> nn.Module:
     try:
         model_name = args.model.name.lower()
@@ -229,9 +248,28 @@ def get_model(args) -> nn.Module:
             "lqtl": LastQueryTransformerEncoderLSTM,
             "tl": TransformerEncoderLSTM,
             "vlqtl": VanillaLQTL,
+            "gcnlstm": GCNLSTM,
+            "gcnlstmattn": GCNLSTMATTN,
+            "gcnlqtl": GCNLastQueryTransformerEncoderLSTM,
+            "gcntl": GCNTransformerEncoderLSTM,
             "mf": MF,
             "lmf": LMF,
         }.get(model_name)(args)
+        if args.model.name[:3].lower() == "gcn":
+            weight: str = os.path.join(
+                args.model.gcn.model_dir, args.model.gcn.model_name
+            )
+            gcn_model: torch.nn.Module = gcn_build(
+                n_node=args.model.gcn.n_node,
+                embedding_dim=args.model.gcn.hidden_dim,
+                num_layers=args.model.gcn.n_layers,
+                alpha=args.model.gcn.alpha,
+                weight=weight,
+            )
+            model.gcn_embedding.weight = nn.Parameter(
+                gcn_model.embedding.weight.clone(), requires_grad=False
+            )
+
     except KeyError:
         logger.warn("No model name %s found", model_name)
     except Exception as e:

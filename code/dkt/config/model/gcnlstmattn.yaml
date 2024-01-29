@@ -1,0 +1,10 @@
+name : gcnlstmattn
+hidden_dim: 512
+n_layers: 1
+max_seq_len: 128  # Maximum sequence length
+n_heads: 1
+drop_out: 0.3
+#gcn_parametesr.
+defaults:
+  - _self_
+  - gcn
